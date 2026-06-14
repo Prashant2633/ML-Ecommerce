@@ -1,9 +1,9 @@
 """
 ML Inference Module — serves real-time recommendations from the trained RL agents.
 
-The module maintains a singleton QLearningAgent (fastest for synchronous inference).
+The module maintains a singleton NumpyDQN (fastest for synchronous inference).
 On startup it initialises with random weights; in production you would load a
-checkpoint saved by trainer.py (torch.save / torch.load).
+checkpoint saved by trainer.py (np.savez / np.load).
 
 Usage (inside a FastAPI route):
     from ..ml.inference import get_recommendations
@@ -11,10 +11,7 @@ Usage (inside a FastAPI route):
 """
 
 import numpy as np
-import torch
 from typing import List
-
-from .agents.q_learning import QLearningAgent
 
 # ── Hyper-parameters must match whatever was used during training ──────────────
 STATE_SIZE   = 10   # session history depth
@@ -29,31 +26,80 @@ ACTION_WEIGHTS = {
 }
 
 
+class NumpyDQN:
+    """
+    Pure NumPy implementation of the Deep Q-Network.
+    Bypasses PyTorch during inference to keep dependencies lightweight.
+    """
+    def __init__(self, state_size: int, action_size: int):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.w1 = None
+        self.b1 = None
+        self.w2 = None
+        self.b2 = None
+        self.w3 = None
+        self.b3 = None
+        self.load_or_init()
+
+    def load_or_init(self):
+        import os
+        # Look for weights file next to this module
+        weights_path = os.path.join(os.path.dirname(__file__), "q_agent_weights.npz")
+
+        if os.path.exists(weights_path):
+            try:
+                data = np.load(weights_path)
+                self.w1 = data['w1']
+                self.b1 = data['b1']
+                self.w2 = data['w2']
+                self.b2 = data['b2']
+                self.w3 = data['w3']
+                self.b3 = data['b3']
+                return
+            except Exception:
+                pass
+
+        # Fallback: Deterministic initialization matching PyTorch's default linear init
+        # PyTorch uses uniform(-1/sqrt(in_features), 1/sqrt(in_features))
+        rng = np.random.default_rng(42)
+        
+        limit1 = 1.0 / np.sqrt(self.state_size)
+        self.w1 = rng.uniform(-limit1, limit1, (self.state_size, 128))
+        self.b1 = rng.uniform(-limit1, limit1, 128)
+        
+        limit2 = 1.0 / np.sqrt(128)
+        self.w2 = rng.uniform(-limit2, limit2, (128, 128))
+        self.b2 = rng.uniform(-limit2, limit2, 128)
+        
+        limit3 = 1.0 / np.sqrt(128)
+        self.w3 = rng.uniform(-limit3, limit3, (128, self.action_size))
+        self.b3 = rng.uniform(-limit3, limit3, self.action_size)
+
+    def forward(self, state: np.ndarray) -> np.ndarray:
+        h1 = np.maximum(0, np.dot(state, self.w1) + self.b1)
+        h2 = np.maximum(0, np.dot(h1, self.w2) + self.b2)
+        q_values = np.dot(h2, self.w3) + self.b3
+        return q_values
+
+
 class _RecommendationEngine:
     """
-    Singleton wrapper around QLearningAgent.
+    Singleton wrapper around NumpyDQN.
     Keeps the model loaded in memory between requests.
     """
 
     def __init__(self):
-        self._agent: QLearningAgent | None = None
+        self._model: NumpyDQN | None = None
 
-    def _get_agent(self) -> QLearningAgent:
-        """Lazy-initialise the agent on first call (avoids import-time GPU work)."""
-        if self._agent is None:
-            self._agent = QLearningAgent(
+    def _get_model(self) -> NumpyDQN:
+        """Lazy-initialise the model on first call."""
+        if self._model is None:
+            self._model = NumpyDQN(
                 state_size=STATE_SIZE,
                 action_size=NUM_PRODUCTS,
-                epsilon=0.0,          # Pure exploitation during inference
-                epsilon_decay=1.0,    # Never decay during serving
             )
-            # ── Optional: load pre-trained weights ───────────────────────────
-            # import os
-            # ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "q_agent.pt")
-            # if os.path.exists(ckpt):
-            #     self._agent.model.load_state_dict(torch.load(ckpt, map_location="cpu"))
-            #     self._agent.model.eval()
-        return self._agent
+        return self._model
 
     def build_state(self, interactions: List[dict]) -> np.ndarray:
         """
@@ -100,21 +146,19 @@ class _RecommendationEngine:
         Returns:
             List of 1-indexed product IDs (matching the DB primary key).
         """
-        agent = self._get_agent()
+        model = self._get_model()
         state = self.build_state(interactions)
 
-        state_tensor = torch.FloatTensor(state).unsqueeze(0)
-
-        with torch.no_grad():
-            q_values: torch.Tensor = agent.model(state_tensor)[0]
+        # Forward pass through our NumPy model
+        q_values = model.forward(state)
 
         # Clamp to the actual number of products in the DB
         effective_actions = min(num_db_products, NUM_PRODUCTS)
         q_values = q_values[:effective_actions]
 
-        # Get top-k action indices (0-indexed product slots)
+        # Get top-k action indices (sorted highest Q-value to lowest)
         top_k = min(top_k, effective_actions)
-        top_indices = torch.topk(q_values, k=top_k).indices.tolist()
+        top_indices = np.argsort(q_values)[::-1][:top_k].tolist()
 
         # Convert 0-indexed slots → 1-indexed DB product IDs
         product_ids = [idx + 1 for idx in top_indices]

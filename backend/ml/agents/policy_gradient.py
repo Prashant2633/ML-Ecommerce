@@ -47,7 +47,15 @@ class PolicyGradientAgent:
             returns.insert(0, R)
             
         returns = torch.tensor(returns)
-        returns = (returns - returns.mean()) / (returns.std() + 1e-9)
+        if len(returns) > 1:
+            std = returns.std()
+            if std > 1e-8:
+                returns = (returns - returns.mean()) / (std + 1e-9)
+            else:
+                returns = returns - returns.mean()
+        else:
+            # For 1-step episodes, keep returns as is or center it
+            returns = returns - returns.mean()
         
         for log_prob, R in zip(self.saved_log_probs, returns):
             policy_loss.append(-log_prob * R)

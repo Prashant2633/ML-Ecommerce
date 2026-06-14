@@ -17,7 +17,7 @@ from backend.ml.agents.policy_gradient import PolicyGradientAgent
 # ─── Hyperparameters ────────────────────────────────────────────────
 NUM_PRODUCTS  = 100      # Action space size
 STATE_SIZE    = 10       # Session history depth
-EPISODES      = 500
+EPISODES      = 50
 BATCH_SIZE    = 32
 
 # Interaction types used in simulation
@@ -38,7 +38,7 @@ def simulate_interaction(episode: int) -> str:
     return np.random.choice(INTERACTION_SEQUENCE, p=weights)
 
 
-def train_q_learning(env: EcommerceEnvironment, episodes: int) -> list:
+def train_q_learning(env: EcommerceEnvironment, episodes: int) -> tuple:
     agent  = QLearningAgent(STATE_SIZE, NUM_PRODUCTS)
     rewards_history = []
 
@@ -61,9 +61,9 @@ def train_q_learning(env: EcommerceEnvironment, episodes: int) -> list:
         rewards_history.append(ep_reward)
         if (ep + 1) % 50 == 0:
             avg = np.mean(rewards_history[-50:])
-            print(f"[Q-Learning] Episode {ep+1}/{episodes} | Avg Reward (last 50): {avg:.2f} | ε={agent.epsilon:.3f}")
+            print(f"[Q-Learning] Episode {ep+1}/{episodes} | Avg Reward (last 50): {avg:.2f} | epsilon={agent.epsilon:.3f}")
 
-    return rewards_history
+    return rewards_history, agent
 
 
 def train_sarsa(env: EcommerceEnvironment, episodes: int) -> list:
@@ -90,7 +90,7 @@ def train_sarsa(env: EcommerceEnvironment, episodes: int) -> list:
         rewards_history.append(ep_reward)
         if (ep + 1) % 50 == 0:
             avg = np.mean(rewards_history[-50:])
-            print(f"[SARSA]      Episode {ep+1}/{episodes} | Avg Reward (last 50): {avg:.2f} | ε={agent.epsilon:.3f}")
+            print(f"[SARSA]      Episode {ep+1}/{episodes} | Avg Reward (last 50): {avg:.2f} | epsilon={agent.epsilon:.3f}")
 
     return rewards_history
 
@@ -125,23 +125,36 @@ def train_policy_gradient(env: EcommerceEnvironment, episodes: int) -> list:
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  NexCart ML Recommendation Engine — Training")
+    print("  NexCart ML Recommendation Engine - Training")
     print("=" * 60)
 
     env = EcommerceEnvironment(num_products=NUM_PRODUCTS, state_size=STATE_SIZE)
 
-    print("\n▶ Training Q-Learning Agent...")
-    ql_rewards = train_q_learning(env, EPISODES)
+    print("\n>>> Training Q-Learning Agent...")
+    ql_rewards, ql_agent = train_q_learning(env, EPISODES)
 
-    print("\n▶ Training SARSA Agent...")
+    print("\n>>> Training SARSA Agent...")
     sarsa_rewards = train_sarsa(env, EPISODES)
 
-    print("\n▶ Training Policy Gradient Agent...")
+    print("\n>>> Training Policy Gradient Agent...")
     pg_rewards = train_policy_gradient(env, EPISODES)
 
     print("\n" + "=" * 60)
-    print("  Training Complete — Final Avg Rewards (last 100 episodes)")
+    print("  Training Complete - Final Avg Rewards (last 100 episodes)")
     print("=" * 60)
     print(f"  Q-Learning:      {np.mean(ql_rewards[-100:]):.2f}")
     print(f"  SARSA:           {np.mean(sarsa_rewards[-100:]):.2f}")
     print(f"  Policy Gradient: {np.mean(pg_rewards[-100:]):.2f}")
+
+    # Save trained Q-Learning agent weights to NumPy compressed format for production deployment
+    weights = {
+        'w1': ql_agent.model.fc1.weight.data.cpu().numpy().T,
+        'b1': ql_agent.model.fc1.bias.data.cpu().numpy(),
+        'w2': ql_agent.model.fc2.weight.data.cpu().numpy().T,
+        'b2': ql_agent.model.fc2.bias.data.cpu().numpy(),
+        'w3': ql_agent.model.fc3.weight.data.cpu().numpy().T,
+        'b3': ql_agent.model.fc3.bias.data.cpu().numpy(),
+    }
+    weights_path = os.path.join(os.path.dirname(__file__), "q_agent_weights.npz")
+    np.savez(weights_path, **weights)
+    print(f"  Saved trained Q-Learning weights to {weights_path}")
