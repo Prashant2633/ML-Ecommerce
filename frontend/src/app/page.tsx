@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { Settings, ArrowUpRight, ArrowLeft, ArrowRight, Heart, ChevronRight, BarChart2, Eye, ShieldAlert, Sparkles } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import ProductCard from '@/components/ProductCard'
 import CartDrawer from '@/components/CartDrawer'
@@ -14,57 +16,76 @@ const HeroCanvas = dynamic(() => import('@/components/HeroCanvas'), { ssr: false
 
 gsap.registerPlugin(ScrollTrigger)
 
-const EMOJI_MAP: Record<string, string> = {
-  Electronics: '🎧', Computers: '💻', Footwear: '👟',
-  'Books & Reading': '📚', 'Home Appliances': '🏠', Clothing: '👖', Kitchen: '🍳',
-}
-
-interface CartItem { id: number; title: string; price: number; quantity: number; emoji: string }
-
-const MARQUEE_ITEMS = [
-  '🎧 Electronics', '💻 Computers', '👟 Footwear', '📚 Books',
-  '🏠 Home Appliances', '👖 Clothing', '🍳 Kitchen', '🚀 AI-Curated Deals',
-  '🛡 Secure Payments', '🧠 RL Recommendations', '⚡ Fast Delivery', '✦ Premium Picks',
-]
-
-const FEATURES = [
-  { icon: '🧠', title: 'Q-Learning Agent', desc: 'Learns from every click and session to optimize product ranking.', color: '#3b82f6' },
-  { icon: '🔄', title: 'SARSA Algorithm', desc: 'On-policy RL that stays conservative and stable under live traffic.', color: '#8b5cf6' },
-  { icon: '📈', title: 'Policy Gradients', desc: 'REINFORCE agent directly maximises expected purchase reward.', color: '#06b6d4' },
-  { icon: '🔒', title: 'Secure Checkout', desc: 'Luhn-validated, PCI-DSS compliant, CSP-hardened payment flow.', color: '#ec4899' },
-]
+interface CartItem { id: number; title: string; price: number; quantity: number; image_url?: string }
 
 export default function HomePage() {
   const router = useRouter()
   const pageRef = useRef<HTMLDivElement>(null)
-  const badgeRef = useRef<HTMLDivElement>(null)
-  const titleRef = useRef<HTMLHeadingElement>(null)
-  const copyRef = useRef<HTMLParagraphElement>(null)
-  const actionsRef = useRef<HTMLDivElement>(null)
-  const marqueeRef = useRef<HTMLDivElement>(null)
-  const statsRefs = useRef<(HTMLDivElement | null)[]>([])
-  const featureRefs = useRef<(HTMLDivElement | null)[]>([])
-  const aiSectionRef = useRef<HTMLDivElement>(null)
+  const bentoGridRef = useRef<HTMLDivElement>(null)
+  const bentoCardsRef = useRef<(HTMLDivElement | null)[]>([])
   const catalogSectionRef = useRef<HTMLDivElement>(null)
+  
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState('All')
+  const [searchQuery, setSearchQuery] = useState('')
   const [aiRecs, setAiRecs] = useState<Product[]>([])
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([])
+
+  const [trendsMenuOpen, setTrendsMenuOpen] = useState(false)
+  const [insightsOpen, setInsightsOpen] = useState(false)
+  const [styleSettingsOpen, setStyleSettingsOpen] = useState(false)
+  const [recommendationLimit, setRecommendationLimit] = useState(3)
+  const [styleBias, setStyleBias] = useState<'minimal' | 'avant-garde' | 'classic' | 'sporty'>('minimal')
+  const [weeklyViews, setWeeklyViews] = useState(48)
+  const [weeklyData, setWeeklyData] = useState([30, 48, 65, 80, 55, 90])
+
+  const exportTelemetry = () => {
+    const data = {
+      user: {
+        id: "NEX-992-04",
+        name: "Alexander Mercer",
+        tier: "Elite Sovereign Member",
+        balance: 48250.00
+      },
+      preference_shift: {
+        monday: "Accessory click: Eclipse Sunglasses",
+        wednesday: "Watch view: Chronos Elite",
+        saturday: "Audio checkout: Aura Headphones"
+      },
+      affinity: {
+        luxury_watch: 0.85,
+        premium_audio: 0.72,
+        designer_bags: 0.64,
+        curated_looks: 0.52
+      },
+      system_telemetry: {
+        latency_ms: 38,
+        convergence: "98.6%",
+        engine: "NumPy content-based similarity index v1.0.4"
+      }
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `nexus_telemetry_report_${Date.now()}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setTrendsMenuOpen(false)
+  }
 
   useEffect(() => {
-    // Attempt to fetch real RL-powered recommendations (user_id=1 as demo).
-    // Falls back to random picks if the backend is not reachable.
+    // Fetch popular/trending recommendations (product_id omitted)
     fetchRecommendations(1)
       .then((ids: number[]) => {
         if (ids.length > 0) {
           const recs = ids
             .map((id) => PRODUCTS.find((p) => p.id === id))
             .filter((p): p is Product => p !== undefined)
-          // Fill up to 3 with random picks if the API returned fewer
-          const extras = [...PRODUCTS]
-            .filter((p) => !ids.includes(p.id))
-            .sort(() => Math.random() - 0.5)
-          setAiRecs([...recs, ...extras].slice(0, 3))
+          setAiRecs(recs.slice(0, 3))
         } else {
           setAiRecs([...PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3))
         }
@@ -72,85 +93,57 @@ export default function HomePage() {
       .catch(() => {
         setAiRecs([...PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3))
       })
+
+    // Set trending products statically for dashboard display
+    setTrendingProducts([...PRODUCTS].slice(0, 3))
+  }, [])
+
+  useEffect(() => {
+    // Handle cross-page scrolling and search query from URL params
+    const params = new URLSearchParams(window.location.search)
+    const scrollTarget = params.get('scroll')
+    if (scrollTarget) {
+      const el = document.getElementById(scrollTarget)
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth' })
+        }, 300)
+      }
+    }
+
+    const searchParam = params.get('search')
+    if (searchParam) {
+      setSearchQuery(searchParam)
+      const catalogEl = document.getElementById('catalog')
+      if (catalogEl) {
+        setTimeout(() => {
+          catalogEl.scrollIntoView({ behavior: 'smooth' })
+        }, 400)
+      }
+    }
   }, [])
 
   useEffect(() => {
     if (!pageRef.current) return
 
     const ctx = gsap.context(() => {
-      gsap.set([badgeRef.current, titleRef.current, copyRef.current, actionsRef.current, marqueeRef.current], {
-        opacity: 0,
-        y: 28,
-      })
-
-      gsap.to([badgeRef.current, titleRef.current, copyRef.current, actionsRef.current], {
-        opacity: 1,
-        y: 0,
-        duration: 0.95,
-        stagger: 0.12,
-        ease: 'power3.out',
-      })
-
-      gsap.to(marqueeRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.9,
-        ease: 'power3.out',
-      })
-
+      // Fade-in bento cards sequentially
       gsap.fromTo(
-        statsRefs.current.filter(Boolean),
-        { opacity: 0, y: 28 },
+        bentoCardsRef.current.filter(Boolean),
+        { opacity: 0, y: 40 },
         {
           opacity: 1,
           y: 0,
-          duration: 0.8,
+          duration: 0.9,
           stagger: 0.08,
           ease: 'power3.out',
-          scrollTrigger: {
-            trigger: statsRefs.current[0],
-            start: 'top 85%',
-            toggleActions: 'play none none reverse',
-          },
-        },
+        }
       )
 
-      gsap.fromTo(
-        featureRefs.current.filter(Boolean),
-        { opacity: 0, y: 36 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.85,
-          stagger: 0.1,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: featureRefs.current[0],
-            start: 'top 82%',
-            toggleActions: 'play none none reverse',
-          },
-        },
-      )
-
-      gsap.fromTo(
-        aiSectionRef.current,
-        { opacity: 0, y: 40 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: aiSectionRef.current,
-            start: 'top 82%',
-            toggleActions: 'play none none reverse',
-          },
-        },
-      )
-
+      // Catalog entrance animation on scroll
       gsap.fromTo(
         catalogSectionRef.current,
-        { opacity: 0, y: 40 },
+        { opacity: 0, y: 50 },
         {
           opacity: 1,
           y: 0,
@@ -158,23 +151,92 @@ export default function HomePage() {
           ease: 'power3.out',
           scrollTrigger: {
             trigger: catalogSectionRef.current,
-            start: 'top 82%',
+            start: 'top 80%',
             toggleActions: 'play none none reverse',
           },
-        },
+        }
       )
     }, pageRef)
 
     return () => ctx.revert()
   }, [])
 
-  const filtered = activeCategory === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === activeCategory)
+  const filtered = PRODUCTS.filter(p => {
+    const matchesCategory = activeCategory === 'All' || p.category === activeCategory
+    if (searchQuery.trim() === '') return matchesCategory
+
+    const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean)
+    const matchesSearch = queryWords.every(word => {
+      const stems = [word]
+      if (word.endsWith('s')) {
+        stems.push(word.slice(0, -1))
+      }
+      if (word.endsWith('es')) {
+        stems.push(word.slice(0, -2))
+      }
+      if (word.endsWith('ies')) {
+        stems.push(word.slice(0, -3) + 'y')
+      }
+
+      return stems.some(stem => {
+        const titleMatch = p.title.toLowerCase().includes(stem)
+        const descMatch = p.description.toLowerCase().includes(stem)
+        const catMatch = p.category.toLowerCase().includes(stem)
+        
+        let synonymMatch = false
+        if (stem === 'shoe' || stem === 'footwear') {
+          synonymMatch = p.title.toLowerCase().includes('sneaker') || 
+                         p.title.toLowerCase().includes('boot') || 
+                         p.title.toLowerCase().includes('loafer') || 
+                         p.title.toLowerCase().includes('high-top') ||
+                         p.category.toLowerCase().includes('footwear')
+        }
+        if (stem === 'cloth' || stem === 'clothing' || stem === 'apparel' || stem === 'wear') {
+          synonymMatch = p.category.toLowerCase().includes('looks') || 
+                         p.title.toLowerCase().includes('blazer') || 
+                         p.title.toLowerCase().includes('coat') || 
+                         p.title.toLowerCase().includes('hoodie') || 
+                         p.title.toLowerCase().includes('suit') || 
+                         p.title.toLowerCase().includes('shirt') || 
+                         p.title.toLowerCase().includes('mockneck') || 
+                         p.title.toLowerCase().includes('jacket') || 
+                         p.title.toLowerCase().includes('kurta') || 
+                         p.title.toLowerCase().includes('sherwani')
+        }
+        if (stem === 'bag' || stem === 'backpack' || stem === 'luggage') {
+          synonymMatch = p.category.toLowerCase().includes('bags') ||
+                         p.title.toLowerCase().includes('duffle') || 
+                         p.title.toLowerCase().includes('backpack') || 
+                         p.title.toLowerCase().includes('crossbody') || 
+                         p.title.toLowerCase().includes('briefcase')
+        }
+        if (stem === 'electronic' || stem === 'device' || stem === 'gadget') {
+          synonymMatch = p.category.toLowerCase().includes('electronics') ||
+                         p.title.toLowerCase().includes('laptop') || 
+                         p.title.toLowerCase().includes('phone') || 
+                         p.title.toLowerCase().includes('keyboard')
+        }
+        if (stem === 'kurta' || stem === 'sherwani' || stem === 'nehru') {
+          synonymMatch = p.title.toLowerCase().includes('kurta') || 
+                         p.title.toLowerCase().includes('nehru') || 
+                         p.title.toLowerCase().includes('sherwani') ||
+                         p.description.toLowerCase().includes('kurta') || 
+                         p.description.toLowerCase().includes('nehru') || 
+                         p.description.toLowerCase().includes('sherwani')
+        }
+
+        return titleMatch || descMatch || catMatch || synonymMatch
+      })
+    })
+
+    return matchesCategory && matchesSearch
+  })
 
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(i => i.id === product.id)
       if (existing) return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      return [...prev, { id: product.id, title: product.title, price: product.price, quantity: 1, emoji: EMOJI_MAP[product.category] || '📦' }]
+      return [...prev, { id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url }]
     })
   }
 
@@ -183,226 +245,535 @@ export default function HomePage() {
   }
 
   return (
-    <div ref={pageRef} style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
-      <Navbar cart={cart} onCartClick={() => setCartOpen(true)} />
+    <div ref={pageRef} style={{ minHeight: '100vh', background: '#0b0c0e', color: '#f5f5f7' }}>
+      <Navbar cart={cart} onCartClick={() => setCartOpen(true)} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
-      <section
-        style={{
-          position: 'relative',
-          minHeight: 580,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          padding: '90px 24px 80px',
-          background: 'radial-gradient(ellipse 100% 70% at 50% -5%, rgba(59,130,246,0.07) 0%, transparent 70%)',
-        }}
-      >
-        <HeroCanvas />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, background: 'linear-gradient(to bottom, transparent, var(--bg-primary))', pointerEvents: 'none', zIndex: 1 }} />
-
-        <div style={{ position: 'relative', zIndex: 2, maxWidth: 800, textAlign: 'center', margin: '0 auto' }}>
-          <div
-            ref={badgeRef}
+      {/* ── Top-Fold Premium Bento Grid Section ── */}
+      <section id="discover" style={{ padding: '40px 24px', maxWidth: 1300, margin: '0 auto' }}>
+        <div ref={bentoGridRef} className="bento-grid-luxury">
+          
+          {/* Card 1: Main Hero Panel (Col 2, Row 2) */}
+          <div 
+            ref={el => { bentoCardsRef.current[0] = el }}
+            className="bento-card-lux bento-span-2x2"
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'rgba(139,92,246,0.1)',
-              border: '1px solid rgba(139,92,246,0.25)',
-              borderRadius: 100,
-              padding: '6px 16px',
-              marginBottom: 28,
+              backgroundImage: 'linear-gradient(to right, rgba(11, 12, 14, 0.95) 40%, rgba(11, 12, 14, 0.5) 100%), url("/images/chronos_elite.jpg")',
+              backgroundSize: 'cover',
+              backgroundPosition: 'right center',
+              minHeight: 380,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
             }}
           >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#8b5cf6', display: 'inline-block', boxShadow: '0 0 8px #8b5cf6', animation: 'pulse-glow 2s infinite' }} />
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#a78bfa', letterSpacing: '0.04em' }}>AI-POWERED RECOMMENDATIONS</span>
-          </div>
-
-          <h1
-            ref={titleRef}
-            style={{
-              fontSize: 'clamp(2.6rem, 6vw, 4.5rem)',
-              fontWeight: 900,
-              lineHeight: 1.08,
-              marginBottom: 24,
-              letterSpacing: '-0.04em',
-            }}
-          >
-            Shop Smarter with<br />
-            <span className="gradient-text">Reinforcement Learning</span>
-          </h1>
-
-          <p
-            ref={copyRef}
-            style={{
-              fontSize: '1.1rem',
-              color: 'var(--text-muted)',
-              lineHeight: 1.75,
-              maxWidth: 580,
-              margin: '0 auto 42px',
-            }}
-          >
-            Our custom AI engine — Q-Learning, SARSA & Policy Gradients — learns your preferences in real-time. Every interaction makes your feed more relevant.
-          </p>
-
-          <div ref={actionsRef} style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button
-              className="btn-glow"
-              style={{ padding: '15px 38px', fontSize: '0.95rem' }}
-              onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              Explore Catalog →
-            </button>
-            <button
-              className="btn-outline"
-              style={{ padding: '15px 38px', fontSize: '0.95rem' }}
-              onClick={() => document.getElementById('ai-picks')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              ✦ AI Picks
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <div
-        ref={marqueeRef}
-        style={{
-          overflow: 'hidden',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          background: 'rgba(255,255,255,0.015)',
-          padding: '14px 0',
-        }}
-      >
-        <div style={{ display: 'flex', gap: 0, animation: 'marquee 28s linear infinite', width: 'max-content' }}>
-          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
-            <span key={i} style={{ padding: '0 40px', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em', flexShrink: 0, whiteSpace: 'nowrap' }}>
-              {item}
-              <span style={{ marginLeft: 40, color: 'rgba(59,130,246,0.4)' }}>·</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <section style={{ padding: '64px 28px 0' }}>
-        <div style={{ maxWidth: 1300, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-          {[
-            { label: 'Products', value: '10,000+', icon: '📦', color: '#3b82f6' },
-            { label: 'RL Training Iterations', value: '2.4M', icon: '🧠', color: '#8b5cf6' },
-            { label: 'Recommendation Accuracy', value: '91.3%', icon: '🎯', color: '#06b6d4' },
-            { label: 'Active Shoppers', value: '50K+', icon: '👤', color: '#ec4899' },
-          ].map((stat, index) => (
-            <div
-              key={stat.label}
-              ref={el => { statsRefs.current[index] = el }}
-              style={{
-                background: 'rgba(16,28,53,0.6)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: 20,
-                padding: '24px 20px',
-                textAlign: 'center',
-                backdropFilter: 'blur(16px)',
-                transition: 'border-color 0.3s, transform 0.3s',
-                cursor: 'default',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = `${stat.color}44`; e.currentTarget.style.transform = 'translateY(-3px)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)' }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: 10, filter: `drop-shadow(0 0 8px ${stat.color}60)` }}>{stat.icon}</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: 4, color: stat.color, textShadow: `0 0 20px ${stat.color}40` }}>{stat.value}</div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', letterSpacing: '0.03em' }}>{stat.label}</div>
+            {/* Embedded 3D canvas behind text */}
+            <div style={{ position: 'absolute', inset: 0, opacity: 0.15, pointerEvents: 'none', zIndex: 1 }}>
+              <HeroCanvas />
             </div>
-          ))}
-        </div>
-      </section>
 
-      <section style={{ padding: '64px 28px' }}>
-        <div style={{ maxWidth: 1300, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 44 }}>
-            <span className="badge badge-cyan" style={{ marginBottom: 14 }}>How It Works</span>
-            <h2 className="section-title" style={{ margin: '10px 0 0' }}>
-              Powered by <span className="gradient-text">Custom RL Agents</span>
-            </h2>
+            <div style={{ position: 'relative', zIndex: 2, maxWidth: '60%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="gold-dot" />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c5a059', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                  Intelligent Commerce
+                </span>
+              </div>
+
+              <h1 style={{
+                fontSize: 'clamp(1.8rem, 3.8vw, 2.8rem)',
+                fontWeight: 800,
+                lineHeight: 1.15,
+                letterSpacing: '-0.02em',
+                fontFamily: 'var(--font-inter, sans-serif)',
+                textTransform: 'uppercase',
+                margin: 0
+              }}>
+                Curated Luxury.<br />
+                <span style={{ background: 'linear-gradient(135deg, #ffffff, #c5a059)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Intelligent Commerce.</span>
+              </h1>
+
+              <p style={{ fontSize: '0.85rem', color: '#8e8e93', lineHeight: 1.6, margin: 0 }}>
+                Experience styling tailored dynamically to your behavior. Pure serverless execution delivering latency-free content discovery.
+              </p>
+
+              <button
+                className="btn-lux-filled"
+                style={{ alignSelf: 'flex-start', marginTop: 12 }}
+                onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Explore Now
+              </button>
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-            {FEATURES.map((f, index) => (
-              <div
-                key={f.title}
-                ref={el => { featureRefs.current[index] = el }}
-                style={{
-                  background: 'rgba(16,28,53,0.6)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: 20,
-                  padding: '28px 24px',
+
+          {/* Card 2: AI Style Guide (Col 1, Row 2) */}
+          <div 
+            id="style-guide"
+            ref={el => { bentoCardsRef.current[1] = el }}
+            className="bento-card-lux bento-span-1x2"
+            style={{ display: 'flex', flexDirection: 'column', gap: 22 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f5f5f7', margin: 0 }}>
+                AI Style Guide
+              </h3>
+              <Settings size={15} style={{ color: '#8e8e93', cursor: 'pointer' }} onClick={() => setStyleSettingsOpen(true)} />
+            </div>
+
+            {/* Recs Grid */}
+            <div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
+                Personalized Recommendations
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { img: '/images/chronos_elite.jpg', tag: 'Watch' },
+                  { img: '/images/aura_headphones.jpg', tag: 'Audio' },
+                  { img: '/images/aria_crossbody.jpg', tag: 'Bag' },
+                ].map((item, idx) => (
+                  <div key={idx} className="style-guide-thumb">
+                    <img src={item.img} alt={item.tag} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+                <div className="style-guide-thumb" style={{ background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', color: '#c5a059', fontWeight: 600 }}>
+                  +
+                </div>
+              </div>
+            </div>
+
+            {/* Style Matches */}
+            <div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
+                Style Matches
+              </span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {['Leather', 'Minimalism', 'Bespoke'].map(tag => (
+                  <span key={tag} className="tag-lux-badge">
+                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#c5a059' }} />
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Refined Performance SVG Line Chart */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', minHeight: 90 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase' }}>Refined Performance</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#c5a059' }}>8.8/10</span>
+              </div>
+              
+              {/* Mini SVG Chart */}
+              <div style={{ position: 'relative', width: '100%', height: 45 }}>
+                <svg width="100%" height="100%" viewBox="0 0 100 30" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+                  <path
+                    d="M0,25 Q15,20 30,12 T60,18 T90,5 T100,2"
+                    fill="none"
+                    stroke="url(#goldGradient)"
+                    strokeWidth="1.5"
+                  />
+                  <defs>
+                    <linearGradient id="goldGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#aa820a" />
+                      <stop offset="100%" stopColor="#c5a059" />
+                    </linearGradient>
+                  </defs>
+                  {/* Points */}
+                  <circle cx="30" cy="12" r="1.5" fill="#f5f5f7" />
+                  <circle cx="60" cy="18" r="1.5" fill="#f5f5f7" />
+                  <circle cx="90" cy="5" r="1.8" fill="#c5a059" />
+                </svg>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#8e8e93', marginTop: 4, letterSpacing: '0.05em' }}>
+                <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+              <span style={{ color: '#8e8e93' }}>Style Profile Score</span>
+              <span style={{ fontWeight: 800, color: '#c5a059' }}>8.8/10</span>
+            </div>
+          </div>
+
+          {/* Card 3: Luxury Watch (Col 1, Row 1) */}
+          <div 
+            ref={el => { bentoCardsRef.current[2] = el }}
+            className="bento-card-lux bento-span-1x1"
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#c5a059', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Luxury Watch</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+            </div>
+            
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, maxHeight: 110, position: 'relative' }}>
+              <img src="/images/chronos_elite.jpg" alt="Watch" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>SOFT GOLD ACCENTS</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Chronos Elite</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$4,950</span>
+              </div>
+              <Link href="/products/1" className="arrow-btn-lux">
+                <ArrowUpRight size={14} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 4: Premium Audio (Col 1, Row 1) */}
+          <div 
+            ref={el => { bentoCardsRef.current[3] = el }}
+            className="bento-card-lux bento-span-1x1"
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#c5a059', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Premium Audio</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, maxHeight: 110, position: 'relative' }}>
+              <img src="/images/aura_headphones.jpg" alt="Headphones" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>PRODUCT SHOT</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Aura Headphones</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$850</span>
+              </div>
+              <Link href="/products/2" className="arrow-btn-lux">
+                <ArrowUpRight size={14} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 6: Trends (Col 1, Row 2) */}
+          <div 
+            ref={el => { bentoCardsRef.current[5] = el }}
+            className="bento-card-lux bento-span-1x2"
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f5f5f7', margin: 0 }}>
+                Your Trends
+              </h3>
+              <span 
+                style={{ color: '#8e8e93', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => setTrendsMenuOpen(!trendsMenuOpen)}
+              >
+                •••
+              </span>
+
+              {/* Trends Dropdown Menu */}
+              {trendsMenuOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 24,
+                  right: 0,
+                  background: '#14161a',
+                  border: '1px solid rgba(197,160,89,0.3)',
+                  borderRadius: 8,
+                  width: 180,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                  zIndex: 10,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 14,
-                  backdropFilter: 'blur(16px)',
-                  transition: 'all 0.3s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = `${f.color}40`; e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px ${f.color}20`; e.currentTarget.style.transform = 'translateY(-4px)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)' }}
-              >
-                <div className="feature-icon" style={{ background: `${f.color}18`, border: `1px solid ${f.color}30` }}>
-                  {f.icon}
+                  padding: '6px 0',
+                  animation: 'fadeIn 0.15s ease-out'
+                }}>
+                  <button 
+                    onClick={() => {
+                      setWeeklyViews(0);
+                      setWeeklyData([0, 0, 0, 0, 0, 0]);
+                      setTrendsMenuOpen(false);
+                      alert("Activity history cleared!");
+                    }}
+                    style={{
+                      background: 'none', border: 'none', color: '#8e8e93', fontSize: '0.72rem', fontWeight: 600,
+                      padding: '8px 16px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.2s, background 0.2s',
+                      fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#c5a059'; e.currentTarget.style.background = 'rgba(197,160,89,0.04)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#8e8e93'; e.currentTarget.style.background = 'none' }}
+                  >
+                    🗑 Clear Activity
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setWeeklyData([60, 95, 80, 110, 85, 130]);
+                      setWeeklyViews(92);
+                      setTrendsMenuOpen(false);
+                      alert("Switched weekly timeline to Monthly Moving Average.");
+                    }}
+                    style={{
+                      background: 'none', border: 'none', color: '#8e8e93', fontSize: '0.72rem', fontWeight: 600,
+                      padding: '8px 16px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.2s, background 0.2s',
+                      fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#c5a059'; e.currentTarget.style.background = 'rgba(197,160,89,0.04)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#8e8e93'; e.currentTarget.style.background = 'none' }}
+                  >
+                    🗓 Switch to Monthly
+                  </button>
+                  <button 
+                    onClick={exportTelemetry}
+                    style={{
+                      background: 'none', border: 'none', color: '#8e8e93', fontSize: '0.72rem', fontWeight: 600,
+                      padding: '8px 16px', textAlign: 'left', cursor: 'pointer', transition: 'color 0.2s, background 0.2s',
+                      fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#c5a059'; e.currentTarget.style.background = 'rgba(197,160,89,0.04)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#8e8e93'; e.currentTarget.style.background = 'none' }}
+                  >
+                    📥 Export JSON Report
+                  </button>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{f.title}</h3>
-                  <p style={{ fontSize: '0.83rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              )}
+            </div>
 
-      <div className="neon-divider" style={{ margin: '0 28px' }} />
-
-      <section id="ai-picks" style={{ padding: '60px 28px' }}>
-        <div ref={aiSectionRef} style={{ maxWidth: 1300, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28, flexWrap: 'wrap' }}>
+            {/* Vertical Bar Chart */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: '1.2rem', filter: 'drop-shadow(0 0 6px #8b5cf6)' }}>✦</span>
-                <h2 className="section-title">AI Picks For You</h2>
-                <span className="badge badge-purple">Policy Gradient Agent</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#8e8e93', marginBottom: 10 }}>
+                <span>WEEKLY ACTIVITY</span>
+                <span>PREFERENCE SHIFT</span>
               </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-                Curated from your session behaviour — click signals, item selection, and session depth.
-              </p>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 75, padding: '0 10px', gap: 12 }}>
+                {weeklyData.map((h, i) => (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{
+                      width: '100%',
+                      height: `${h}px`,
+                      background: i === weeklyData.length - 1 ? 'linear-gradient(to top, #aa820a, #c5a059)' : 'rgba(255,255,255,0.06)',
+                      borderRadius: 4,
+                      transition: 'all 0.3s'
+                    }} />
+                    <span style={{ fontSize: '0.5rem', color: '#8e8e93' }}>
+                      {['W', 'T', 'W', 'T', 'F', 'S'][i]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Engagement */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
+                  Engagement
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ display: 'flex', marginLeft: 4 }}>
+                    {[
+                      { initial: 'A', bg: '#aa820a' },
+                      { initial: 'B', bg: '#c5a059' },
+                    ].map((user, idx) => (
+                      <div key={idx} style={{
+                        width: 20, height: 20, borderRadius: '50%', background: user.bg, color: '#0b0c0e', fontSize: '0.62rem', fontWeight: 800,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #16181c', marginLeft: idx > 0 ? -6 : 0
+                      }}>
+                        {user.initial}
+                      </div>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#8e8e93', marginLeft: 4 }}>Active matches</span>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ color: '#8e8e93', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Items Viewed</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#c5a059' }}>{weeklyViews}</span>
+              </div>
+            </div>
+
+            <button 
+              className="btn-lux-outline" 
+              style={{ marginTop: 'auto', width: '100%' }}
+              onClick={() => setInsightsOpen(true)}
+            >
+              View Insights
+            </button>
+          </div>
+
+          {/* Card 5: Navigation & controls (Col 1, Row 1) */}
+          <div 
+            ref={el => { bentoCardsRef.current[4] = el }}
+            className="bento-card-lux bento-span-1x1"
+            style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#8e8e93', textTransform: 'uppercase' }}>Console</span>
+              <span className="badge" style={{ background: 'rgba(197,160,89,0.12)', color: '#c5a059', border: '1px solid rgba(197,160,89,0.2)' }}>
+                38ms Latency
+              </span>
+            </div>
+
+            <div style={{ padding: '10px 0' }}>
+              <span style={{ fontSize: '1.35rem', fontWeight: 900, display: 'block', color: '#c5a059' }}>✦ 98.6%</span>
+              <span style={{ fontSize: '0.65rem', color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Recommendation convergence</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="control-btn-lux" style={{ flex: 1 }}>
+                <ArrowLeft size={14} />
+              </button>
+              <button className="control-btn-lux" style={{ flex: 1 }}>
+                <ArrowRight size={14} />
+              </button>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(288px, 1fr))', gap: 22 }}>
-            {aiRecs.map(p => <ProductCard key={p.id} product={p} onAddToCart={addToCart} />)}
+
+          {/* Card 7: Designer Bag (Col 1, Row 1) */}
+          <div 
+            ref={el => { bentoCardsRef.current[6] = el }}
+            className="bento-card-lux bento-span-1x1"
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#c5a059', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Designer</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, maxHeight: 110, position: 'relative' }}>
+              <img src="/images/aria_crossbody.jpg" alt="Bag" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>CALFSKIN LEATHER</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Aria Crossbody</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$1,200</span>
+              </div>
+              <Link href="/products/3" className="arrow-btn-lux">
+                <ArrowUpRight size={14} />
+              </Link>
+            </div>
           </div>
+
+          {/* Card 8: Modern Essential (Col 1, Row 1) */}
+          <div 
+            ref={el => { bentoCardsRef.current[7] = el }}
+            className="bento-card-lux bento-span-1x1"
+            style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#c5a059', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Curated Look</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: 12, maxHeight: 110, position: 'relative' }}>
+              <img src="/images/modern_essential.jpg" alt="Blazer Model" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)' }} />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>WOOL BLEND BLAZER</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Modern Essential Collection</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$950</span>
+              </div>
+              <Link href="/products/4" className="arrow-btn-lux">
+                <ArrowUpRight size={14} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 9: Recommended For You (Col 2, Row 1) */}
+          <div 
+            ref={el => { bentoCardsRef.current[8] = el }}
+            className="bento-card-lux bento-span-2x1"
+            style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: '0.95rem', color: '#c5a059' }}>✦</span>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f5f5f7', margin: 0 }}>
+                  Recommended For You
+                </h3>
+              </div>
+              <span className="badge" style={{ background: 'rgba(197,160,89,0.12)', color: '#c5a059', border: '1px solid rgba(197,160,89,0.2)' }}>
+                Content Similarity Engine
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, flex: 1 }}>
+              {aiRecs.map(p => (
+                <Link key={p.id} href={`/products/${p.id}`} style={{ textDecoration: 'none' }}>
+                  <div className="mini-recs-card-lux">
+                    <div style={{ width: 38, height: 38, borderRadius: 8, overflow: 'hidden', background: '#0b0c0e' }}>
+                      <img src={p.image_url} alt={p.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f5f5f7', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {p.title}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', color: '#8e8e93', marginTop: 1 }}>
+                        {p.category}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#c5a059' }}>
+                      ${p.price}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
         </div>
       </section>
 
-      <section id="catalog" style={{ padding: '0 28px 80px' }}>
+      {/* ── Product Catalog Section ── */}
+      <section id="catalog" style={{ padding: '80px 24px 80px', borderTop: '1px solid rgba(255,255,255,0.03)', background: 'rgba(0,0,0,0.1)' }}>
         <div ref={catalogSectionRef} style={{ maxWidth: 1300, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 36, flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <h2 className="section-title">Product Catalog</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.83rem', marginTop: 4 }}>{filtered.length} products available</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Sparkles size={14} style={{ color: '#c5a059' }} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c5a059', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Seeded Collection</span>
+              </div>
+              <h2 className="section-title" style={{ margin: 0, textTransform: 'uppercase', fontWeight: 800, fontSize: '1.8rem', letterSpacing: '-0.02em' }}>
+                Product Catalog
+              </h2>
+              <p style={{ color: '#8e8e93', fontSize: '0.8rem', marginTop: 6 }}>{filtered.length} exclusive items available</p>
             </div>
+
+            {/* Filter buttons */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {CATEGORIES.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
                   style={{
-                    padding: '7px 16px',
+                    padding: '8px 18px',
                     borderRadius: 100,
                     fontFamily: 'inherit',
-                    border: activeCategory === cat ? '1px solid rgba(59,130,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                    background: activeCategory === cat ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.03)',
-                    color: activeCategory === cat ? '#60a5fa' : 'var(--text-muted)',
+                    border: activeCategory === cat ? '1px solid rgba(197,160,89,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                    background: activeCategory === cat ? 'rgba(197,160,89,0.08)' : 'rgba(255,255,255,0.02)',
+                    color: activeCategory === cat ? '#c5a059' : '#8e8e93',
                     cursor: 'pointer',
-                    fontSize: '0.82rem',
+                    fontSize: '0.78rem',
                     fontWeight: 600,
+                    letterSpacing: '0.02em',
                     transition: 'all 0.2s',
-                    boxShadow: activeCategory === cat ? '0 0 12px rgba(59,130,246,0.15)' : 'none',
+                  }}
+                  onMouseEnter={e => {
+                    if (activeCategory !== cat) {
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+                      e.currentTarget.style.color = '#f5f5f7'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (activeCategory !== cat) {
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'
+                      e.currentTarget.style.color = '#8e8e93'
+                    }
                   }}
                 >
                   {cat}
@@ -411,7 +782,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(288px, 1fr))', gap: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(288px, 1fr))', gap: 24 }}>
             {filtered.map((p, i) => (
               <div key={p.id} style={{ animation: `fadeInUp 0.4s ease ${i * 0.04}s both` }}>
                 <ProductCard product={p} onAddToCart={addToCart} />
@@ -421,24 +792,315 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '36px 28px', background: 'rgba(0,0,0,0.2)' }}>
+      {/* ── Footer ── */}
+      <footer style={{ borderTop: '1px solid rgba(255,255,255,0.03)', padding: '40px 28px', background: 'rgba(0,0,0,0.3)' }}>
         <div style={{ maxWidth: 1300, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>✦</div>
-            <span style={{ fontWeight: 700 }}><span className="gradient-text">NexCart</span></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 24, height: 24, borderRadius: 5, background: 'linear-gradient(135deg, #c5a059, #aa820a)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 900, color: '#0b0c0e' }}>N</div>
+            <span style={{ fontWeight: 800, fontSize: '0.9rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}><span style={{ color: '#c5a059' }}>NEX</span>CART</span>
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
-            ML-Powered E-commerce · Q-Learning · SARSA · Policy Gradients · Deployed on GCP
+          <p style={{ color: '#8e8e93', fontSize: '0.78rem', margin: 0 }}>
+            Curated E-Commerce · Serverless Similarity Index · Verified on Vercel
           </p>
           <div style={{ display: 'flex', gap: 16 }}>
             {['Privacy', 'Terms', 'Security'].map(l => (
-              <span key={l} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer' }}>{l}</span>
+              <span key={l} style={{ fontSize: '0.75rem', color: '#8e8e93', cursor: 'pointer', transition: 'color 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#c5a059'}
+                onMouseLeave={e => e.currentTarget.style.color = '#8e8e93'}>{l}</span>
             ))}
           </div>
         </div>
       </footer>
 
       {cartOpen && <CartDrawer cart={cart} onClose={() => setCartOpen(false)} onUpdateQty={updateQty} onCheckout={() => { setCartOpen(false); router.push('/checkout') }} />}
+
+      {/* Style Guide Settings Modal */}
+      {styleSettingsOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease-out',
+        }} onClick={() => setStyleSettingsOpen(false)}>
+          <div style={{
+            background: 'linear-gradient(135deg, #111215 0%, #16181c 100%)',
+            border: '1px solid rgba(197, 160, 89, 0.2)',
+            boxShadow: '0 0 32px rgba(197, 160, 89, 0.1), 0 20px 48px rgba(0,0,0,0.8)',
+            borderRadius: 20,
+            width: '90%',
+            maxWidth: 440,
+            padding: 28,
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20,
+            animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }} onClick={(e) => e.stopPropagation()}>
+            
+            {/* Top Accent Line */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: '10%',
+              right: '10%',
+              height: 2,
+              background: 'linear-gradient(90deg, transparent, #c5a059, transparent)',
+            }} />
+
+            {/* Close Button */}
+            <button 
+              onClick={() => setStyleSettingsOpen(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                background: 'none',
+                border: 'none',
+                color: '#8e8e93',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#c5a059'}
+              onMouseLeave={e => e.currentTarget.style.color = '#8e8e93'}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c5a059', margin: 0 }}>
+              AI Recommendations Tuning
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: '0.68rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 8, fontWeight: 700 }}>
+                  Recommendation Profile Bias
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { id: 'minimal', label: 'Minimalist' },
+                    { id: 'avant-garde', label: 'Avant-Garde' },
+                    { id: 'classic', label: 'Classic Heritage' },
+                    { id: 'sporty', label: 'Tech Sporty' }
+                  ].map(b => (
+                    <button
+                      key={b.id}
+                      onClick={() => setStyleBias(b.id as any)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: styleBias === b.id ? '1px solid rgba(197,160,89,0.5)' : '1px solid rgba(255,255,255,0.06)',
+                        background: styleBias === b.id ? 'rgba(197,160,89,0.08)' : 'rgba(255,255,255,0.02)',
+                        color: styleBias === b.id ? '#c5a059' : '#8e8e93',
+                        cursor: 'pointer',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        fontFamily: 'inherit',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.68rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 8, fontWeight: 700 }}>
+                  Recommendation Engine Density
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="6" 
+                    value={recommendationLimit} 
+                    onChange={e => setRecommendationLimit(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: '#c5a059', height: 4 }} 
+                  />
+                  <span style={{ fontSize: '0.75rem', color: '#c5a059', fontWeight: 800 }}>{recommendationLimit} items</span>
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#8e8e93' }}>
+                <span>Neural Net Precision</span>
+                <span style={{ color: '#c5a059', fontWeight: 700 }}>Dual Content-Matrix Engine</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                setStyleSettingsOpen(false);
+                alert("Successfully saved AI recommendations preference multipliers!");
+              }}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #c5a059, #aa820a)',
+                border: 'none',
+                borderRadius: 10,
+                padding: '12px',
+                color: '#0b0c0e',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                fontFamily: 'inherit'
+              }}
+            >
+              Apply Settings
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* Telemetry Insights Modal */}
+      {insightsOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease-out',
+        }} onClick={() => setInsightsOpen(false)}>
+          <div style={{
+            background: 'linear-gradient(135deg, #111215 0%, #16181c 100%)',
+            border: '1px solid rgba(197, 160, 89, 0.2)',
+            boxShadow: '0 0 32px rgba(197, 160, 89, 0.1), 0 20px 48px rgba(0,0,0,0.8)',
+            borderRadius: 20,
+            width: '90%',
+            maxWidth: 480,
+            padding: 28,
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20,
+            animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }} onClick={(e) => e.stopPropagation()}>
+            
+            {/* Top Accent Line */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: '10%',
+              right: '10%',
+              height: 2,
+              background: 'linear-gradient(90deg, transparent, #c5a059, transparent)',
+            }} />
+
+            {/* Close Button */}
+            <button 
+              onClick={() => setInsightsOpen(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                background: 'none',
+                border: 'none',
+                color: '#8e8e93',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#c5a059'}
+              onMouseLeave={e => e.currentTarget.style.color = '#8e8e93'}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c5a059', margin: 0 }}>
+              Telemetry Preference Insights
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Category affinities */}
+              <div>
+                <span style={{ fontSize: '0.68rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 10, fontWeight: 700 }}>
+                  Category Affinity Breakdown
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    { cat: 'Luxury Watch', pct: 45 },
+                    { cat: 'Premium Audio', pct: 28 },
+                    { cat: 'Designer Bags', pct: 15 },
+                    { cat: 'Curated Looks', pct: 12 }
+                  ].map(affinity => (
+                    <div key={affinity.cat}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#f5f5f7', marginBottom: 2 }}>
+                        <span>{affinity.cat}</span>
+                        <span style={{ color: '#c5a059', fontWeight: 700 }}>{affinity.pct}%</span>
+                      </div>
+                      <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: `${affinity.pct}%`, height: '100%', background: 'linear-gradient(90deg, #aa820a, #c5a059)' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preference shift */}
+              <div>
+                <span style={{ fontSize: '0.68rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 6, fontWeight: 700 }}>
+                  Preference Shift Notes
+                </span>
+                <p style={{ fontSize: '0.75rem', color: '#8e8e93', lineHeight: 1.5, margin: 0 }}>
+                  User demonstrates high preference stability on <span style={{ color: '#c5a059', fontWeight: 700 }}>Watches & Audio</span>. A minor preference increase in <span style={{ color: '#f5f5f7', fontWeight: 600 }}>Curated Looks</span> is detected over Friday-Saturday clusters. Recommend pairing Chronos Elite Watch suggestions with wool-blend garments.
+                </p>
+              </div>
+
+              {/* Engine statistics */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                <div>
+                  <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Calculated Latency</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#c5a059' }}>38ms (Serverless Index)</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Index Convergence</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f5f5f7' }}>98.6% Accuracy</span>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setInsightsOpen(false)}
+              style={{
+                width: '100%',
+                background: 'rgba(197, 160, 89, 0.08)',
+                border: '1px solid rgba(197, 160, 89, 0.25)',
+                borderRadius: 10,
+                padding: '10px',
+                color: '#c5a059',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                fontFamily: 'inherit',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(197, 160, 89, 0.15)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(197, 160, 89, 0.08)'}
+            >
+              Dismiss Insights
+            </button>
+
+          </div>
+        </div>
+      )}
     </div>
   )
 }

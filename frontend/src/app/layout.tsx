@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'NexCart — AI-Powered Shopping',
-  description: 'Personalized e-commerce platform powered by reinforcement learning recommendations.',
+  description: 'Personalized e-commerce platform powered by serverless content-based similarity and trending popularity recommendations.',
 }
 
 export default function RootLayout({

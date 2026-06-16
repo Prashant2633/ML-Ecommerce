@@ -1,4 +1,4 @@
-// Telemetry client - captures user behaviour signals to feed the RL reward function.
+// Telemetry client - captures user behaviour signals to compute popularity-based recommendations.
 // Sends click, add_to_cart, purchase, and view events to the backend API.
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -41,12 +41,14 @@ export async function track(productId: number, actionType: ActionType, userId?: 
   }
 }
 
-export async function fetchRecommendations(userId: number): Promise<number[]> {
+export async function fetchRecommendations(userId: number, productId?: number): Promise<number[]> {
   try {
     const sessionId = getOrCreateSessionId()
-    const res = await fetch(
-      `${API_URL}/api/recommendations/${userId}?session_id=${sessionId}`
-    )
+    let url = `${API_URL}/api/recommendations/${userId}?session_id=${sessionId}`
+    if (productId !== undefined) {
+      url += `&product_id=${productId}`
+    }
+    const res = await fetch(url)
     const data = await res.json()
     return data.recommendations || []
   } catch {

@@ -8,7 +8,8 @@ from sqlalchemy.pool import StaticPool
 logger = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_URL = "postgresql://ecommerce_user:ecommerce_password@localhost:5432/ecommerce_db"
-FALLBACK_DATABASE_URL = "sqlite:///:memory:"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FALLBACK_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'sqlite.db')}"
 
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
@@ -47,7 +48,7 @@ def _create_engine() -> object:
             return primary_engine
         except OperationalError as exc:
             logger.warning(
-                "PostgreSQL connection failed; falling back to SQLite in-memory database. Error: %s",
+                "PostgreSQL connection failed; falling back to SQLite database. Error: %s",
                 exc,
             )
             return _build_engine(FALLBACK_DATABASE_URL)
