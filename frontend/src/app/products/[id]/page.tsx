@@ -9,6 +9,76 @@ import CartDrawer from '@/components/CartDrawer'
 import { useRegion } from '@/components/RegionContext'
 import { useAuth } from '@/components/AuthContext'
 
+const UNSPLASH_MAP: Record<string, string> = {
+  // Watches
+  "chronos_elite.jpg": "photo-1547996160-81dfa63595aa",
+  "apex_smartwatch.png": "photo-1523275335684-37898b6baf30",
+  "submariner_watch.png": "photo-1547996160-81dfa63595aa",
+  "grand_tourer_watch.png": "photo-1522312346375-d1a52e2b99b3",
+  "heritage_dress_watch.png": "photo-1524805444758-089113d48a6d",
+  // Premium Audio
+  "aura_headphones.jpg": "photo-1505740420928-5e560c06d30e",
+  "studio_monitor.png": "photo-1545048702-79362596cdc9",
+  "verge_earbuds.png": "photo-1590658268037-6bf12165a8df",
+  // Designer Bags
+  "aria_crossbody.jpg": "photo-1548036328-c9fa89d128fa",
+  "voyager_duffle.png": "photo-1533867617858-e7b97e060509",
+  "vanguard_briefcase.png": "photo-1622560480605-d83c853bc5c3",
+  "rolltop_backpack.png": "photo-1608228088998-57828365d486",
+  // Apparel
+  "modern_essential.jpg": "photo-1594938298603-c8148c4dae35",
+  "sartorial_trench.png": "photo-1591047139829-d91aecb6caea",
+  "cashmere_hoodie.png": "photo-1556821840-3a63f95609a7",
+  "dinner_suit.png": "photo-1593032465175-481ac7f401a0",
+  "linen_shirt.png": "photo-1596755094514-f87e34085b2c",
+  "merino_mockneck.png": "photo-1614975058789-41316d0e2e9c",
+  "leather_jacket.png": "photo-1551028719-00167b16eac5",
+  "royal_silk_kurta.png": "photo-1608748010899-18f300247112",
+  "nehru_jacket.png": "photo-1617627143750-d86bc21e42bb",
+  "heritage_sherwani.png": "photo-1610030469983-98e550d6193c",
+  "printed_kurti.png": "photo-1608748010899-18f300247112",
+  "silk_kurti.png": "photo-1617627143750-d86bc21e42bb",
+  "cotton_pyjamas.png": "photo-1562157873-818bc0726f68",
+  "satin_pajamas.png": "photo-1608228088998-57828365d486",
+  // Accessories
+  "eclipse_sunglasses.png": "photo-1572635196237-14b3f281503f",
+  "leather_cardholder.png": "photo-1622560480605-d83c853bc5c3",
+  "brass_cuff.png": "photo-1611591437281-460bfbe1220a",
+  "wool_scarf.png": "photo-1607604276583-eef5d076aa5f",
+  "blue_light_glasses.png": "photo-1572635196237-14b3f281503f",
+  "leather_belt.png": "photo-1614162692292-7ac56d7f7f1e",
+  "silk_necktie.png": "photo-1598033129183-c4f50c736f10",
+  // Electronics
+  "quantum_laptop.png": "photo-1505797149-43b0069ec26b",
+  "aerophone.png": "photo-1598327105666-5b89351aff97",
+  "nomad_keyboard.png": "photo-1618384887929-16ec33fab9ef",
+  "wireless_charger.png": "photo-1583863788434-e58a36330cf0",
+  "power_bank.png": "photo-1609081219090-a6d81d3085bf",
+  // Footwear
+  "stratus_sneakers.png": "photo-1549298916-b41d501d3772",
+  "chelsea_boots.png": "photo-1608256246200-53e635b5b65f",
+  "monarch_loafers.png": "photo-1533867617858-e7b97e060509",
+  "court_hightops.png": "photo-1549298916-b41d501d3772",
+  "running_shoes.png": "photo-1542291026-7eec264c27ff",
+  "cozy_slippers.png": "photo-1608228088998-57828365d486",
+  // Home & Kitchen
+  "chef_knife.png": "photo-1599940824399-b87987ceb72a",
+  "knife_set.png": "photo-1509440159596-0249088772ff",
+  "espresso_machine.png": "photo-1517701604599-bb29b565090c",
+  "blender.png": "photo-1578643463396-0997cb5328c1",
+  "air_fryer.png": "photo-1621972750749-0fbb1abb7736",
+  "water_bottle.png": "photo-1602143407151-7111542de6e8",
+  "ceramic_mug.png": "photo-1514228742587-6b1558fcca3d",
+  "scented_candle.png": "photo-1603006905003-be475563bc59",
+  // Fitness & Outdoors
+  "yoga_mat.png": "photo-1592432678016-e910b452f9a2",
+  "dumbbells.png": "photo-1638536532686-d610adfc8e5c",
+  "resistance_bands.png": "photo-1517838277536-f5f99be501cd",
+  "camping_tent.png": "photo-1504280390367-361c6d9f38f4",
+  "office_chair.png": "photo-1505797149-43b0069ec26b",
+  "desk_lamp.png": "photo-1507473885765-e6ed057f782c",
+}
+
 export default function ProductDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -24,6 +94,14 @@ export default function ProductDetailPage() {
 
   const [cart, setCart] = useState<any[]>([])
   const [cartOpen, setCartOpen] = useState(false)
+  const [selectedSize, setSelectedSize] = useState<string | null>(null)
+  const [sizeError, setSizeError] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
+
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }
   const [searchQuery, setSearchQuery] = useState('')
 
   // Carousel
@@ -47,26 +125,33 @@ export default function ProductDetailPage() {
       .then(data => {
         if (data && data.id) {
           setProduct(data)
+          if (data.reviews) {
+            setReviews(data.reviews)
+          }
         } else {
           const fallback = PRODUCTS.find(p => p.id === Number(id))
-          if (fallback) setProduct(fallback)
+          if (fallback) {
+            setProduct(fallback)
+            setReviews(fallback.reviews || [
+              { name: 'Alexander Mercer', rating: 5, comment: 'Absolutely stunning. Matches my Minimalist & Leather preferences seamlessly. The telemetry index is spot on.', date: 'June 14, 2026' },
+              { name: 'Sophia Chen', rating: 4, comment: 'Premium materials. Very elegant packaging. Shipping took 3 days in the AE region. Recommend!', date: 'June 09, 2026' }
+            ])
+          }
         }
         setLoadingProduct(false)
       })
       .catch(err => {
         console.error('Failed to load product details', err)
         const fallback = PRODUCTS.find(p => p.id === Number(id))
-        if (fallback) setProduct(fallback)
+        if (fallback) {
+          setProduct(fallback)
+          setReviews(fallback.reviews || [
+            { name: 'Alexander Mercer', rating: 5, comment: 'Absolutely stunning. Matches my Minimalist & Leather preferences seamlessly. The telemetry index is spot on.', date: 'June 14, 2026' },
+            { name: 'Sophia Chen', rating: 4, comment: 'Premium materials. Very elegant packaging. Shipping took 3 days in the AE region. Recommend!', date: 'June 09, 2026' }
+          ])
+        }
         setLoadingProduct(false)
       })
-  }, [id])
-
-  // Initial mock reviews
-  useEffect(() => {
-    setReviews([
-      { name: 'Alexander Mercer', rating: 5, comment: 'Absolutely stunning. Matches my Minimalist & Leather preferences seamlessly. The telemetry index is spot on.', date: 'June 14, 2026' },
-      { name: 'Sophia Chen', rating: 4, comment: 'Premium materials. Very elegant packaging. Shipping took 3 days in the AE region. Recommend!', date: 'June 09, 2026' }
-    ])
   }, [id])
 
   useEffect(() => {
@@ -160,29 +245,47 @@ export default function ProductDetailPage() {
     await toggleWishlist(product.id)
   }
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newComment.trim()) return
 
+    if (!user) {
+      showToast('You must be logged in to submit a review!', 'error')
+      router.push(`/login?redirect=/products/${id}`)
+      return
+    }
+
     setSubmittingReview(true)
-    const reviewer = reviewerName.trim() || (user ? user.email.split('@')[0] : 'Anonymous')
+    const reviewer = reviewerName.trim() || user.email.split('@')[0]
     
-    setTimeout(() => {
-      const newReview = {
-        name: reviewer,
-        rating: newRating,
-        comment: newComment,
-        date: new Date().toLocaleDateString(activeRegion.locale, {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${API_URL}/api/products/${id}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: reviewer,
+          rating: newRating,
+          comment: newComment
         })
+      })
+      if (!res.ok) {
+        throw new Error('Failed to submit review')
       }
-      setReviews(prev => [newReview, ...prev])
+      const updatedProduct = await res.json()
+      setProduct(updatedProduct)
+      if (updatedProduct.reviews) {
+        setReviews(updatedProduct.reviews)
+      }
       setNewComment('')
       setReviewerName('')
+      showToast('Review submitted successfully!')
+    } catch (err: any) {
+      console.error(err)
+      showToast(err.message || 'Failed to submit review', 'error')
+    } finally {
       setSubmittingReview(false)
-    }, 800)
+    }
   }
 
   if (loadingProduct) {
@@ -207,9 +310,16 @@ export default function ProductDetailPage() {
   const formattedPrice = formatPrice(product.price, rAvail.priceOverride)
 
   // Carousel angles/styled images to mimic high quality alternatives
-  const images = [
+  const filename = product.image_url.split('/').pop() || ''
+  const photoId = UNSPLASH_MAP[filename]
+  const images = photoId ? [
     product.image_url,
-    product.image_url, // Main repeat for display
+    `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=600&h=600&q=80&sat=-25&con=10`,
+    `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=600&h=600&q=80&bri=-15&con=15`,
+    `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=600&h=600&q=80&sat=-100`
+  ] : [
+    product.image_url,
+    product.image_url,
     product.image_url
   ]
 
@@ -238,6 +348,30 @@ export default function ProductDetailPage() {
           <span style={{ opacity: 0.3 }}>/</span>
           <span style={{ color: '#c5a059', fontWeight: 700 }}>{product.title}</span>
         </div>
+        {/* Toast Notification */}
+        {toast && (
+          <div style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            background: 'rgba(14, 16, 19, 0.95)',
+            border: toast.type === 'error' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(197, 160, 89, 0.35)',
+            borderRadius: 12,
+            padding: '14px 20px',
+            color: '#f5f5f7',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 16px rgba(197,160,89,0.1)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            fontFamily: 'inherit',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+          }}>
+            <span>{toast.type === 'error' ? '❌' : toast.type === 'info' ? 'ℹ️' : '✨'}</span>
+            <span>{toast.message}</span>
+          </div>
+        )}
       </div>
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 24px' }}>
@@ -424,25 +558,72 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
+            {/* Size Selector */}
+            {rAvail.available && rAvail.stock > 0 && (product.category === 'Apparel' || product.category === 'Footwear') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 0', borderBottom: '1px solid #22242a' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f5f5f7', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  Select Size {sizeError && <span style={{ color: '#ef4444', fontSize: '0.7rem', textTransform: 'none', marginLeft: 8 }}>(Please select a size)</span>}
+                </span>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {(product.category === 'Apparel' ? ['S', 'M', 'L', 'XL'] : ['8', '9', '10', '11']).map(size => (
+                    <button
+                      key={size}
+                      onClick={() => {
+                        setSelectedSize(size)
+                        setSizeError(false)
+                      }}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 8,
+                        background: selectedSize === size ? 'rgba(197, 160, 89, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                        border: selectedSize === size ? '2px solid #c5a059' : '1px solid rgba(255, 255, 255, 0.08)',
+                        color: selectedSize === size ? '#c5a059' : '#f5f5f7',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Stock Urgency Warning */}
+            {rAvail.available && rAvail.stock > 0 && rAvail.stock <= 5 && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 12, padding: '12px 16px', color: '#ef4444', fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                ⚠️ Stock Alert: Only {rAvail.stock} items left in stock in your region! Order soon.
+              </div>
+            )}
+
             {/* Cart checkout operations */}
             <div style={{ display: 'flex', gap: 16 }}>
               <button
                 disabled={!rAvail.available || rAvail.stock === 0}
                 onClick={async () => {
+                  if ((product.category === 'Apparel' || product.category === 'Footwear') && !selectedSize) {
+                    setSizeError(true)
+                    showToast('Please select a size first!', 'error')
+                    return
+                  }
                   await track(product.id, 'add_to_cart', user?.id)
                   const saved = localStorage.getItem('nexcart_cart')
                   let cartList = []
                   if (saved) {
                     try { cartList = JSON.parse(saved) } catch {}
                   }
-                  const existing = cartList.find((i: any) => i.id === product.id)
+                  const existing = cartList.find((i: any) => i.id === product.id && i.size === selectedSize)
                   if (existing) {
                     existing.quantity += 1
                   } else {
-                    cartList.push({ id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url })
+                    cartList.push({ id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url, size: selectedSize || undefined })
                   }
                   saveCart(cartList)
                   setAdded(true)
+                  showToast(selectedSize ? `Added "${product.title}" (Size: ${selectedSize}) to cart!` : `Added "${product.title}" to cart!`)
                   setTimeout(() => setAdded(false), 2000)
                 }}
                 className="btn-glow"
@@ -484,15 +665,20 @@ export default function ProductDetailPage() {
               <button 
                 disabled={!rAvail.available || rAvail.stock === 0}
                 onClick={async () => {
+                  if ((product.category === 'Apparel' || product.category === 'Footwear') && !selectedSize) {
+                    setSizeError(true)
+                    showToast('Please select a size first!', 'error')
+                    return
+                  }
                   await track(product.id, 'purchase', user?.id)
                   const saved = localStorage.getItem('nexcart_cart')
                   let cartList = []
                   if (saved) {
                     try { cartList = JSON.parse(saved) } catch {}
                   }
-                  const existing = cartList.find((i: any) => i.id === product.id)
+                  const existing = cartList.find((i: any) => i.id === product.id && i.size === selectedSize)
                   if (!existing) {
-                    cartList.push({ id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url })
+                    cartList.push({ id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url, size: selectedSize || undefined })
                     saveCart(cartList)
                   }
                   router.push('/checkout')

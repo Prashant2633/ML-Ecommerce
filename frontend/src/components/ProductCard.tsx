@@ -15,7 +15,12 @@ const CATEGORY_GRADIENT: Record<string, string> = {
   'Premium Audio': '195deg, #18191c, #0a0b0d',
   'Designer Bags': '195deg, #1e1e1e, #0f0f0f',
   'Curated Looks': '195deg, #1c1d22, #0d0e12',
+  'Apparel': '195deg, #1c1d22, #0d0e12',
   'Accessories': '195deg, #1e1c16, #0e0d08',
+  'Electronics': '195deg, #181c20, #0a0c0e',
+  'Footwear': '195deg, #1b1e1b, #0c0e0c',
+  'Home & Kitchen': '195deg, #1e1b1b, #0e0c0c',
+  'Fitness & Outdoors': '195deg, #1b1c1e, #0c0d0f',
 }
 
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
@@ -158,6 +163,11 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           <p style={{ fontSize: '0.8rem', color: '#8e8e93', lineHeight: 1.55, margin: 0, flex: 1 }}>
             {product.description}
           </p>
+          {rAvail.available && rAvail.stock > 0 && rAvail.stock <= 5 && (
+            <div style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: 700, marginTop: 8 }}>
+              ⚠️ Only {rAvail.stock} left in stock - order soon!
+            </div>
+          )}
 
           {/* Price + CTA */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.04)', marginTop: 4 }}>

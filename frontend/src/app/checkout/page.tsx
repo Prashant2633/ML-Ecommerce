@@ -176,6 +176,22 @@ export default function CheckoutPage() {
     setProcessing(true)
 
     try {
+      // 1. Verify regional availability and stock level for all cart items
+      for (const item of cart) {
+        const prod = PRODUCTS.find(p => p.id === item.id)
+        const avail = prod?.availability?.[activeRegion.code]
+        if (!avail || !avail.available) {
+          throw new Error(`Product "${item.title}" is not available in your region (${activeRegion.displayName}).`)
+        }
+        if (avail.stock < item.quantity) {
+          if (avail.stock === 0) {
+            throw new Error(`Product "${item.title}" is out of stock in your region (${activeRegion.displayName}).`)
+          } else {
+            throw new Error(`Sorry, "${item.title}" only has ${avail.stock} items left in stock in your region (${activeRegion.displayName}). Please adjust your cart quantity.`)
+          }
+        }
+      }
+
       // Create shipping address object
       const shippingAddress = {
         name: form.name,

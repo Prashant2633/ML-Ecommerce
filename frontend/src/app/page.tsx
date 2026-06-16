@@ -18,7 +18,7 @@ const HeroCanvas = dynamic(() => import('@/components/HeroCanvas'), { ssr: false
 
 gsap.registerPlugin(ScrollTrigger)
 
-interface CartItem { id: number; title: string; price: number; quantity: number; image_url?: string }
+interface CartItem { id: number; title: string; price: number; quantity: number; image_url?: string; size?: string }
 
 export default function HomePage() {
   const router = useRouter()
@@ -42,6 +42,12 @@ export default function HomePage() {
                          activeRegion.currencyCode === 'AED' ? 40000 : 10000
   const [maxPrice, setMaxPrice] = useState<number>(10000)
   const [visibleCount, setVisibleCount] = useState<number>(9)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
+  
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }
 
   useEffect(() => {
     setMaxPrice(maxSliderValue)
@@ -341,6 +347,12 @@ export default function HomePage() {
   }
 
   const addToCart = (product: Product) => {
+    if (product.category === 'Apparel' || product.category === 'Footwear') {
+      showToast(`Please select a size for "${product.title}"`, 'info')
+      router.push(`/products/${product.id}`)
+      return
+    }
+
     const existing = cart.find(i => i.id === product.id)
     let newCart: CartItem[]
     if (existing) {
@@ -349,11 +361,31 @@ export default function HomePage() {
       newCart = [...cart, { id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url }]
     }
     saveCart(newCart)
+    showToast(`Added "${product.title}" to cart!`)
   }
 
-  const updateQty = (id: number, delta: number) => {
-    const newCart = cart.map(i => i.id === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0)
+  const updateQty = (id: number, delta: number, size?: string) => {
+    const item = cart.find(i => i.id === id && i.size === size)
+    const newCart = cart.map(i => {
+      if (i.id === id && i.size === size) {
+        return { ...i, quantity: i.quantity + delta }
+      }
+      return i
+    }).filter(i => i.quantity > 0)
     saveCart(newCart)
+    
+    if (item) {
+      if (delta > 0) {
+        showToast(`Increased quantity of "${item.title}"${size ? ` (Size: ${size})` : ''}`)
+      } else {
+        const stillInCart = newCart.find(i => i.id === id && i.size === size)
+        if (stillInCart) {
+          showToast(`Decreased quantity of "${item.title}"${size ? ` (Size: ${size})` : ''}`)
+        } else {
+          showToast(`Removed "${item.title}"${size ? ` (Size: ${size})` : ''} from cart`, 'info')
+        }
+      }
+    }
   }
 
   return (
@@ -503,7 +535,7 @@ export default function HomePage() {
 
             <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
-              <span style={{ color: '#8e8e93' }}>Style Profile Score</span>
+              <span style={{ color: '#8e8e93' }}>Style Profile Score (Demo)</span>
               <span style={{ fontWeight: 800, color: '#c5a059' }}>8.8/10</span>
             </div>
           </div>
@@ -655,7 +687,7 @@ export default function HomePage() {
             {/* Vertical Bar Chart */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#8e8e93', marginBottom: 10 }}>
-                <span>WEEKLY ACTIVITY</span>
+                <span>WEEKLY ACTIVITY (Demo)</span>
                 <span>PREFERENCE SHIFT</span>
               </div>
               
@@ -702,7 +734,7 @@ export default function HomePage() {
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <span style={{ color: '#8e8e93', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Items Viewed</span>
+                <span style={{ color: '#8e8e93', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Items Viewed (Demo)</span>
                 <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#c5a059' }}>{weeklyViews}</span>
               </div>
             </div>
@@ -1292,6 +1324,31 @@ export default function HomePage() {
             </button>
 
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          background: 'rgba(14, 16, 19, 0.95)',
+          border: toast.type === 'error' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(197, 160, 89, 0.35)',
+          borderRadius: 12,
+          padding: '14px 20px',
+          color: '#f5f5f7',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.5), 0 0 16px rgba(197,160,89,0.1)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontFamily: 'inherit',
+          fontSize: '0.82rem',
+          fontWeight: 600,
+        }}>
+          <span>{toast.type === 'error' ? '❌' : toast.type === 'info' ? 'ℹ️' : '✨'}</span>
+          <span>{toast.message}</span>
         </div>
       )}
     </div>

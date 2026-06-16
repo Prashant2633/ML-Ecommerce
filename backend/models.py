@@ -29,6 +29,8 @@ class Product(Base):
     rating = Column(Float, default=5.0)
     review_count = Column(Integer, default=0)
     availability = Column(JSON, nullable=True)
+    reviews = Column(JSON, nullable=True)
+
 
 class Order(Base):
     __tablename__ = "orders"

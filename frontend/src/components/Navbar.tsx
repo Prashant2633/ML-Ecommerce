@@ -26,6 +26,29 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
   const [loadingOrders, setLoadingOrders] = useState(false)
   const { activeRegion, setRegion, formatPrice } = useRegion()
   const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('nx_theme') as 'dark' | 'light'
+    if (savedTheme) {
+      setTheme(savedTheme)
+      if (savedTheme === 'light') {
+        document.body.classList.add('light-theme')
+      }
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(nextTheme)
+    localStorage.setItem('nx_theme', nextTheme)
+    if (nextTheme === 'light') {
+      document.body.classList.add('light-theme')
+    } else {
+      document.body.classList.remove('light-theme')
+    }
+  }
+
 
   useEffect(() => {
     const handleOpenAccount = (e: any) => {
@@ -100,7 +123,15 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
         {/* Subtle Gold accent line top */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, #c5a059 30%, #aa820a 70%, transparent)' }} />
 
-        <div className="navbar-container" style={{ maxWidth: 1300, margin: '0 auto' }}>
+        <div className="navbar-container" style={{ 
+          maxWidth: 1300, 
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          height: 68,
+          width: '100%',
+        }}>
 
           {/* Logo */}
           <Link href="/" style={{ textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -113,7 +144,11 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
           </Link>
 
           {/* Search */}
-          <div className="navbar-search-wrapper">
+          <div className="navbar-search-wrapper" style={{
+            flex: 1,
+            maxWidth: 380,
+            position: 'relative',
+          }}>
             <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.5, width: 14, height: 14, color: '#c5a059' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -135,7 +170,12 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
           </div>
 
           {/* Links */}
-          <div className="navbar-links-wrapper" style={{ marginLeft: 'auto' }}>
+          <div className="navbar-links-wrapper" style={{ 
+            marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 28,
+          }}>
             {navItems.map((item) => (
               <Link key={item.label} href={item.href || '#'} onClick={(e) => handleNavClick(e, item)} style={{ color: '#8e8e93', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'color 0.2s', cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#c5a059')}
@@ -143,6 +183,28 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
                 {item.label}
               </Link>
             ))}
+
+            {/* Theme Switcher */}
+            <button 
+              onClick={toggleTheme}
+              style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 10,
+                width: 34,
+                height: 34,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+              }}
+              title="Toggle Theme"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
 
             {/* Region Switcher */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -519,7 +581,7 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'fadeIn 0.2s ease-out' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
                   <div>
-                    <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Convergence Index</span>
+                    <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Convergence Index (Demo)</span>
                     <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#c5a059' }}>98.6%</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -530,11 +592,11 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div style={{ padding: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
-                    <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Style Profile</span>
+                    <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Style Profile (Demo)</span>
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f5f5f7' }}>Minimalist & Leather</span>
                   </div>
                   <div style={{ padding: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
-                    <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Active Preferences</span>
+                    <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Active Preferences (Demo)</span>
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f5f5f7' }}>Tech Noir Aesthetic</span>
                   </div>
                 </div>

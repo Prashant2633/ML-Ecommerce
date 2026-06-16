@@ -34,7 +34,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased`} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <body className={`${inter.className} antialiased`}>
         <RegionProvider initialRegionCode={regionCode}>
           <AuthProvider>
             <PWARegistration />
