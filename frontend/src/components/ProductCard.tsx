@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { track } from '@/lib/telemetry'
 import type { Product } from '@/lib/products'
+import { useRegion } from '@/components/RegionContext'
 
 interface ProductCardProps {
   product: Product
@@ -21,6 +22,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   const [added, setAdded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
+  const { activeRegion, formatPrice } = useRegion()
 
   // 3D tilt on mouse move
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -50,12 +52,14 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
     await track(product.id, 'add_to_cart')
     setTimeout(() => setAdded(false), 1800)
   }
-
   const stars = '★'.repeat(Math.floor(product.rating)) + '☆'.repeat(5 - Math.floor(product.rating))
   const gradient = CATEGORY_GRADIENT[product.category] || '195deg, #18191c, #0a0b0d'
+  
+  const rAvail = product.availability?.[activeRegion.code] || { available: true, stock: 10, priceOverride: null }
+  const formattedPrice = formatPrice(product.price, rAvail.priceOverride)
 
   return (
-    <Link href={`/products/${product.id}`} onClick={() => track(product.id, 'click')} style={{ textDecoration: 'none', display: 'block' }}>
+    <Link href={`/products/${product.id}`} onClick={() => track(product.id, 'click')} style={{ textDecoration: 'none', display: 'block', opacity: !rAvail.available ? 0.6 : 1 }}>
       <div
         ref={cardRef}
         onMouseMove={handleMouseMove}
@@ -123,8 +127,8 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             display: 'flex', alignItems: 'center', gap: 4,
             border: '1px solid rgba(255,255,255,0.06)',
           }}>
-            <span style={{ color: '#c5a059', fontSize: '0.72rem' }}>★</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f5f5f7' }}>{product.rating}</span>
+             <span style={{ color: '#c5a059', fontSize: '0.72rem' }}>★</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f5f5f7' }}>{product.rating ?? 5.0}</span>
           </div>
         </div>
 
@@ -144,7 +148,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             }}>
               {product.category}
             </span>
-            <span style={{ fontSize: '0.75rem', color: '#8e8e93' }}>{product.review_count.toLocaleString()} reviews</span>
+            <span style={{ fontSize: '0.75rem', color: '#8e8e93' }}>{(product.review_count ?? 0).toLocaleString()} reviews</span>
           </div>
 
           <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f5f5f7', lineHeight: 1.4, margin: 0 }}>
@@ -159,22 +163,29 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.04)', marginTop: 4 }}>
             <div>
               <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#c5a059' }}>
-                ${product.price.toLocaleString()}
+                {formattedPrice}
               </span>
             </div>
             <button
+              disabled={!rAvail.available || rAvail.stock === 0}
               onClick={handleAddToCart}
               style={{
-                background: added ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #c5a059, #aa820a)',
-                border: 'none', borderRadius: 8,
+                background: !rAvail.available || rAvail.stock === 0
+                  ? 'rgba(255,255,255,0.02)'
+                  : added
+                    ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                    : 'linear-gradient(135deg, #c5a059, #aa820a)',
+                border: !rAvail.available || rAvail.stock === 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                borderRadius: 8,
                 padding: '8px 16px', fontSize: '0.78rem', fontWeight: 700,
-                color: added ? '#ffffff' : '#0b0c0e', cursor: 'pointer',
+                color: !rAvail.available || rAvail.stock === 0 ? '#8e8e93' : added ? '#ffffff' : '#0b0c0e',
+                cursor: !rAvail.available || rAvail.stock === 0 ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
-                boxShadow: added ? '0 0 16px rgba(34,197,94,0.3)' : '0 4px 12px rgba(197,160,89,0.15)',
+                boxShadow: !rAvail.available || rAvail.stock === 0 ? 'none' : added ? '0 0 16px rgba(34,197,94,0.3)' : '0 4px 12px rgba(197,160,89,0.15)',
                 transform: added ? 'scale(0.97)' : 'scale(1)',
               }}
             >
-              {added ? '✓ Added' : '+ Cart'}
+              {!rAvail.available ? 'N/A' : rAvail.stock === 0 ? 'Out' : added ? '✓' : '+ Cart'}
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import products, users, recommendations, telemetry
+from .routers import products, users, recommendations, telemetry, orders
 from .database import engine, Base
 
 # Create database tables
@@ -21,6 +21,7 @@ app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(recommendations.router, prefix="/api/recommendations", tags=["Recommendations"])
 app.include_router(telemetry.router, prefix="/api/telemetry", tags=["Telemetry"])
+app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 
 @app.get("/")
 def read_root():

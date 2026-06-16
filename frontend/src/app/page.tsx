@@ -11,6 +11,8 @@ import ProductCard from '@/components/ProductCard'
 import CartDrawer from '@/components/CartDrawer'
 import { PRODUCTS, CATEGORIES, type Product } from '@/lib/products'
 import { fetchRecommendations } from '@/lib/telemetry'
+import { useRegion } from '@/components/RegionContext'
+import { useAuth } from '@/components/AuthContext'
 
 const HeroCanvas = dynamic(() => import('@/components/HeroCanvas'), { ssr: false })
 
@@ -25,12 +27,29 @@ export default function HomePage() {
   const bentoCardsRef = useRef<(HTMLDivElement | null)[]>([])
   const catalogSectionRef = useRef<HTMLDivElement>(null)
   
+  const { user, syncCart } = useAuth()
+  const [dbProducts, setDbProducts] = useState<Product[]>(PRODUCTS)
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [aiRecs, setAiRecs] = useState<Product[]>([])
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([])
+  const { activeRegion, formatPrice } = useRegion()
+
+  const [sortBy, setSortBy] = useState<'default' | 'price-low' | 'price-high' | 'rating'>('default')
+  const maxSliderValue = activeRegion.currencyCode === 'INR' ? 800000 :
+                         activeRegion.currencyCode === 'AED' ? 40000 : 10000
+  const [maxPrice, setMaxPrice] = useState<number>(10000)
+  const [visibleCount, setVisibleCount] = useState<number>(9)
+
+  useEffect(() => {
+    setMaxPrice(maxSliderValue)
+  }, [activeRegion])
+
+  useEffect(() => {
+    setVisibleCount(9)
+  }, [activeCategory, searchQuery, activeRegion, sortBy, maxPrice])
 
   const [trendsMenuOpen, setTrendsMenuOpen] = useState(false)
   const [insightsOpen, setInsightsOpen] = useState(false)
@@ -78,25 +97,63 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // Fetch popular/trending recommendations (product_id omitted)
-    fetchRecommendations(1)
-      .then((ids: number[]) => {
-        if (ids.length > 0) {
-          const recs = ids
-            .map((id) => PRODUCTS.find((p) => p.id === id))
-            .filter((p): p is Product => p !== undefined)
-          setAiRecs(recs.slice(0, 3))
-        } else {
-          setAiRecs([...PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3))
-        }
-      })
-      .catch(() => {
-        setAiRecs([...PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3))
-      })
-
-    // Set trending products statically for dashboard display
-    setTrendingProducts([...PRODUCTS].slice(0, 3))
+    const handleOpenCart = () => setCartOpen(true)
+    window.addEventListener('open-cart', handleOpenCart)
+    return () => window.removeEventListener('open-cart', handleOpenCart)
   }, [])
+
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    
+    // Fetch products from database first
+    fetch(`${API_URL}/api/products/`)
+      .then(res => res.json())
+      .then(data => {
+        let loadedProducts = PRODUCTS
+        if (Array.isArray(data) && data.length > 0) {
+          setDbProducts(data)
+          loadedProducts = data
+        }
+        
+        // Then load recommendations using loadedProducts
+        fetchRecommendations(user ? user.id : 1)
+          .then((ids: number[]) => {
+            if (ids.length > 0) {
+              const recs = ids
+                .map((id) => loadedProducts.find((p) => p.id === id))
+                .filter((p): p is Product => p !== undefined)
+              setAiRecs(recs.slice(0, 3))
+            } else {
+              setAiRecs([...loadedProducts].sort(() => Math.random() - 0.5).slice(0, 3))
+            }
+          })
+          .catch(() => {
+            setAiRecs([...loadedProducts].sort(() => Math.random() - 0.5).slice(0, 3))
+          })
+
+        // Set trending products from db
+        setTrendingProducts(loadedProducts.slice(0, 3))
+      })
+      .catch(err => {
+        console.error('Failed to fetch products from database', err)
+        // Fallback to static recommendations
+        fetchRecommendations(1)
+          .then((ids: number[]) => {
+            if (ids.length > 0) {
+              const recs = ids
+                .map((id) => PRODUCTS.find((p) => p.id === id))
+                .filter((p): p is Product => p !== undefined)
+              setAiRecs(recs.slice(0, 3))
+            } else {
+              setAiRecs([...PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3))
+            }
+          })
+          .catch(() => {
+            setAiRecs([...PRODUCTS].sort(() => Math.random() - 0.5).slice(0, 3))
+          })
+        setTrendingProducts([...PRODUCTS].slice(0, 3))
+      })
+  }, [user])
 
   useEffect(() => {
     // Handle cross-page scrolling and search query from URL params
@@ -161,87 +218,142 @@ export default function HomePage() {
     return () => ctx.revert()
   }, [])
 
-  const filtered = PRODUCTS.filter(p => {
-    const matchesCategory = activeCategory === 'All' || p.category === activeCategory
-    if (searchQuery.trim() === '') return matchesCategory
+  const getProductPrice = (p: Product) => {
+    const avail = p.availability?.[activeRegion.code]
+    if (avail && avail.priceOverride !== undefined && avail.priceOverride !== null) {
+      return avail.priceOverride
+    }
+    const rate = {
+      USD: 1.0,
+      INR: 83.5,
+      GBP: 0.79,
+      AED: 3.67,
+      EUR: 0.93
+    }[activeRegion.currencyCode] || 1.0
+    return p.price * rate
+  }
 
-    const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean)
-    const matchesSearch = queryWords.every(word => {
-      const stems = [word]
-      if (word.endsWith('s')) {
-        stems.push(word.slice(0, -1))
-      }
-      if (word.endsWith('es')) {
-        stems.push(word.slice(0, -2))
-      }
-      if (word.endsWith('ies')) {
-        stems.push(word.slice(0, -3) + 'y')
-      }
+  const filtered = dbProducts
+    .filter(p => {
+      const matchesCategory = activeCategory === 'All' || p.category === activeCategory
+      
+      const isAvailableInRegion = p.availability?.[activeRegion.code]?.available ?? true
+      if (!isAvailableInRegion) return false
 
-      return stems.some(stem => {
-        const titleMatch = p.title.toLowerCase().includes(stem)
-        const descMatch = p.description.toLowerCase().includes(stem)
-        const catMatch = p.category.toLowerCase().includes(stem)
-        
-        let synonymMatch = false
-        if (stem === 'shoe' || stem === 'footwear') {
-          synonymMatch = p.title.toLowerCase().includes('sneaker') || 
-                         p.title.toLowerCase().includes('boot') || 
-                         p.title.toLowerCase().includes('loafer') || 
-                         p.title.toLowerCase().includes('high-top') ||
-                         p.category.toLowerCase().includes('footwear')
-        }
-        if (stem === 'cloth' || stem === 'clothing' || stem === 'apparel' || stem === 'wear') {
-          synonymMatch = p.category.toLowerCase().includes('looks') || 
-                         p.title.toLowerCase().includes('blazer') || 
-                         p.title.toLowerCase().includes('coat') || 
-                         p.title.toLowerCase().includes('hoodie') || 
-                         p.title.toLowerCase().includes('suit') || 
-                         p.title.toLowerCase().includes('shirt') || 
-                         p.title.toLowerCase().includes('mockneck') || 
-                         p.title.toLowerCase().includes('jacket') || 
-                         p.title.toLowerCase().includes('kurta') || 
-                         p.title.toLowerCase().includes('sherwani')
-        }
-        if (stem === 'bag' || stem === 'backpack' || stem === 'luggage') {
-          synonymMatch = p.category.toLowerCase().includes('bags') ||
-                         p.title.toLowerCase().includes('duffle') || 
-                         p.title.toLowerCase().includes('backpack') || 
-                         p.title.toLowerCase().includes('crossbody') || 
-                         p.title.toLowerCase().includes('briefcase')
-        }
-        if (stem === 'electronic' || stem === 'device' || stem === 'gadget') {
-          synonymMatch = p.category.toLowerCase().includes('electronics') ||
-                         p.title.toLowerCase().includes('laptop') || 
-                         p.title.toLowerCase().includes('phone') || 
-                         p.title.toLowerCase().includes('keyboard')
-        }
-        if (stem === 'kurta' || stem === 'sherwani' || stem === 'nehru') {
-          synonymMatch = p.title.toLowerCase().includes('kurta') || 
-                         p.title.toLowerCase().includes('nehru') || 
-                         p.title.toLowerCase().includes('sherwani') ||
-                         p.description.toLowerCase().includes('kurta') || 
-                         p.description.toLowerCase().includes('nehru') || 
-                         p.description.toLowerCase().includes('sherwani')
-        }
+      const localPrice = getProductPrice(p)
+      if (localPrice > maxPrice) return false
 
-        return titleMatch || descMatch || catMatch || synonymMatch
+      if (searchQuery.trim() === '') return matchesCategory
+
+      const queryWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean)
+      const matchesSearch = queryWords.every(word => {
+        const stems = [word]
+        if (word.endsWith('s')) stems.push(word.slice(0, -1))
+        if (word.endsWith('es')) stems.push(word.slice(0, -2))
+        if (word.endsWith('ies')) stems.push(word.slice(0, -3) + 'y')
+
+        return stems.some(stem => {
+          const titleMatch = p.title.toLowerCase().includes(stem)
+          const descMatch = p.description.toLowerCase().includes(stem)
+          const catMatch = p.category.toLowerCase().includes(stem)
+          
+          let synonymMatch = false
+          if (stem === 'shoe' || stem === 'footwear') {
+            synonymMatch = p.title.toLowerCase().includes('sneaker') || 
+                           p.title.toLowerCase().includes('boot') || 
+                           p.title.toLowerCase().includes('loafer') || 
+                           p.title.toLowerCase().includes('high-top') ||
+                           p.category.toLowerCase().includes('footwear')
+          }
+          if (stem === 'cloth' || stem === 'clothing' || stem === 'apparel' || stem === 'wear') {
+            synonymMatch = p.category.toLowerCase().includes('looks') || 
+                           p.title.toLowerCase().includes('blazer') || 
+                           p.title.toLowerCase().includes('coat') || 
+                           p.title.toLowerCase().includes('hoodie') || 
+                           p.title.toLowerCase().includes('suit') || 
+                           p.title.toLowerCase().includes('shirt') || 
+                           p.title.toLowerCase().includes('mockneck') || 
+                           p.title.toLowerCase().includes('jacket') || 
+                           p.title.toLowerCase().includes('kurta') || 
+                           p.title.toLowerCase().includes('sherwani')
+          }
+          if (stem === 'bag' || stem === 'backpack' || stem === 'luggage') {
+            synonymMatch = p.category.toLowerCase().includes('bags') ||
+                           p.title.toLowerCase().includes('duffle') || 
+                           p.title.toLowerCase().includes('backpack') || 
+                           p.title.toLowerCase().includes('crossbody') || 
+                           p.title.toLowerCase().includes('briefcase')
+          }
+          if (stem === 'electronic' || stem === 'device' || stem === 'gadget') {
+            synonymMatch = p.category.toLowerCase().includes('electronics') ||
+                           p.title.toLowerCase().includes('laptop') || 
+                           p.title.toLowerCase().includes('phone') || 
+                           p.title.toLowerCase().includes('keyboard')
+          }
+          if (stem === 'kurta' || stem === 'sherwani' || stem === 'nehru') {
+            synonymMatch = p.title.toLowerCase().includes('kurta') || 
+                           p.title.toLowerCase().includes('nehru') || 
+                           p.title.toLowerCase().includes('sherwani') ||
+                           p.description.toLowerCase().includes('kurta') || 
+                           p.description.toLowerCase().includes('nehru') || 
+                           p.description.toLowerCase().includes('sherwani')
+          }
+
+          return titleMatch || descMatch || catMatch || synonymMatch
+        })
       })
+
+      return matchesCategory && matchesSearch
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price-low') {
+        return getProductPrice(a) - getProductPrice(b)
+      } else if (sortBy === 'price-high') {
+        return getProductPrice(b) - getProductPrice(a)
+      } else if (sortBy === 'rating') {
+        return (b.rating || 0) - (a.rating || 0)
+      }
+      return 0
     })
 
-    return matchesCategory && matchesSearch
-  })
+  // Load initial cart
+  useEffect(() => {
+    if (user) {
+      setCart(user.cart || [])
+    } else {
+      const saved = localStorage.getItem('nexcart_cart')
+      if (saved) {
+        try {
+          setCart(JSON.parse(saved))
+        } catch {
+          setCart([])
+        }
+      }
+    }
+  }, [user])
+
+  const saveCart = (newCart: CartItem[]) => {
+    setCart(newCart)
+    localStorage.setItem('nexcart_cart', JSON.stringify(newCart))
+    if (user) {
+      syncCart(newCart)
+    }
+  }
 
   const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.id === product.id)
-      if (existing) return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
-      return [...prev, { id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url }]
-    })
+    const existing = cart.find(i => i.id === product.id)
+    let newCart: CartItem[]
+    if (existing) {
+      newCart = cart.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+    } else {
+      newCart = [...cart, { id: product.id, title: product.title, price: product.price, quantity: 1, image_url: product.image_url }]
+    }
+    saveCart(newCart)
   }
 
   const updateQty = (id: number, delta: number) => {
-    setCart(prev => prev.map(i => i.id === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0))
+    const newCart = cart.map(i => i.id === id ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0)
+    saveCart(newCart)
   }
 
   return (
@@ -416,7 +528,9 @@ export default function HomePage() {
               <div>
                 <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>SOFT GOLD ACCENTS</span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Chronos Elite</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$4,950</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>
+                  {formatPrice(4950, PRODUCTS.find(p => p.id === 1)?.availability?.[activeRegion.code]?.priceOverride)}
+                </span>
               </div>
               <Link href="/products/1" className="arrow-btn-lux">
                 <ArrowUpRight size={14} />
@@ -444,7 +558,9 @@ export default function HomePage() {
               <div>
                 <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>PRODUCT SHOT</span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Aura Headphones</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$850</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>
+                  {formatPrice(850, PRODUCTS.find(p => p.id === 2)?.availability?.[activeRegion.code]?.priceOverride)}
+                </span>
               </div>
               <Link href="/products/2" className="arrow-btn-lux">
                 <ArrowUpRight size={14} />
@@ -648,7 +764,9 @@ export default function HomePage() {
               <div>
                 <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>CALFSKIN LEATHER</span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Aria Crossbody</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$1,200</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>
+                  {formatPrice(1200, PRODUCTS.find(p => p.id === 3)?.availability?.[activeRegion.code]?.priceOverride)}
+                </span>
               </div>
               <Link href="/products/3" className="arrow-btn-lux">
                 <ArrowUpRight size={14} />
@@ -676,7 +794,9 @@ export default function HomePage() {
               <div>
                 <span style={{ fontSize: '0.62rem', color: '#8e8e93', display: 'block', marginBottom: 2 }}>WOOL BLEND BLAZER</span>
                 <span style={{ fontSize: '0.85rem', fontWeight: 800, display: 'block' }}>Modern Essential Collection</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>$950</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#c5a059', display: 'block', marginTop: 2 }}>
+                  {formatPrice(950, PRODUCTS.find(p => p.id === 4)?.availability?.[activeRegion.code]?.priceOverride)}
+                </span>
               </div>
               <Link href="/products/4" className="arrow-btn-lux">
                 <ArrowUpRight size={14} />
@@ -718,7 +838,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#c5a059' }}>
-                      ${p.price}
+                      {formatPrice(p.price, p.availability?.[activeRegion.code]?.priceOverride)}
                     </div>
                   </div>
                 </Link>
@@ -782,13 +902,86 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Composable Filters Panel */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid rgba(255, 255, 255, 0.04)',
+            borderRadius: 16,
+            padding: '16px 24px',
+            marginBottom: 32,
+            flexWrap: 'wrap',
+            gap: 24,
+          }}>
+            {/* Price Range Slider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 260 }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Max Price:</span>
+              <input 
+                type="range" 
+                min="0" 
+                max={maxSliderValue} 
+                value={maxPrice} 
+                onChange={e => setMaxPrice(Number(e.target.value))}
+                style={{ flex: 1, accentColor: '#c5a059', height: 4, cursor: 'pointer' }} 
+              />
+              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#c5a059', minWidth: 80 }}>
+                {formatPrice(maxPrice / (activeRegion.currencyCode === 'INR' ? 83.5 : activeRegion.currencyCode === 'AED' ? 3.67 : activeRegion.currencyCode === 'EUR' ? 0.93 : activeRegion.currencyCode === 'GBP' ? 0.79 : 1.0))}
+              </span>
+            </div>
+
+            {/* Sorting */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sort By:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                  padding: '8px 14px',
+                  color: '#f5f5f7',
+                  fontSize: '0.78rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <option value="default">Featured</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="rating">Top Rated</option>
+              </select>
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(288px, 1fr))', gap: 24 }}>
-            {filtered.map((p, i) => (
+            {filtered.slice(0, visibleCount).map((p, i) => (
               <div key={p.id} style={{ animation: `fadeInUp 0.4s ease ${i * 0.04}s both` }}>
                 <ProductCard product={p} onAddToCart={addToCart} />
               </div>
             ))}
           </div>
+
+          {filtered.length > visibleCount && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 48 }}>
+              <button
+                onClick={() => setVisibleCount(prev => prev + 9)}
+                className="btn-lux-filled"
+                style={{
+                  padding: '12px 36px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em'
+                }}
+              >
+                Load More Collection
+              </button>
+            </div>
+          )}
         </div>
       </section>
 

@@ -1,4 +1,6 @@
 'use client'
+import { useRegion } from '@/components/RegionContext'
+import { PRODUCTS } from '@/lib/products'
 
 interface CartItem {
   id: number
@@ -16,7 +18,38 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: CartDrawerProps) {
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const { activeRegion, formatPrice } = useRegion()
+
+  // FX rates cache for calculation
+  const FX_RATES: Record<string, number> = {
+    USD: 1.0,
+    INR: 83.5,
+    GBP: 0.79,
+    AED: 3.67,
+    EUR: 0.93
+  }
+
+  const getPriceVal = (itemId: number, basePrice: number): number => {
+    const prod = PRODUCTS.find(p => p.id === itemId)
+    const avail = prod?.availability?.[activeRegion.code]
+    if (avail && avail.priceOverride !== undefined && avail.priceOverride !== null) {
+      return avail.priceOverride
+    }
+    const rate = FX_RATES[activeRegion.currencyCode] || 1.0
+    return basePrice * rate
+  }
+
+  const totalVal = cart.reduce((sum, item) => {
+    const pVal = getPriceVal(item.id, item.price)
+    return sum + pVal * item.quantity
+  }, 0)
+
+  const formattedTotal = new Intl.NumberFormat(activeRegion.locale, {
+    style: 'currency',
+    currency: activeRegion.currencyCode,
+    minimumFractionDigits: activeRegion.currencyCode === 'INR' ? 0 : 2,
+    maximumFractionDigits: 2
+  }).format(totalVal)
 
   return (
     <>
@@ -54,33 +87,40 @@ export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: C
               <div style={{ fontSize: '2.5rem', marginBottom: 16 }}>🛒</div>
               <p style={{ fontSize: '0.88rem', fontWeight: 500 }}>Your cart is empty</p>
             </div>
-          ) : cart.map(item => (
-            <div key={item.id} className="bento-card-lux" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, background: '#14161a', borderColor: '#22242a', flexDirection: 'row' }}>
-              <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: '#0b0c0e', flexShrink: 0, border: '1px solid rgba(255,255,255,0.05)' }}>
-                {item.image_url ? (
-                  <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#c5a059', fontWeight: 600 }}>✦</div>
-                )}
-              </div>
-              
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: '#f5f5f7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {item.title}
-                </p>
-                <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#c5a059', fontWeight: 700 }}>
-                  ${(item.price).toLocaleString()} <span style={{ fontSize: '0.72rem', color: '#8e8e93', fontWeight: 400 }}>x {item.quantity}</span>
-                </p>
-              </div>
+          ) : cart.map(item => {
+            const prod = PRODUCTS.find(p => p.id === item.id) || PRODUCTS[0]
+            const avail = prod.availability?.[activeRegion.code]
+            const priceOverride = avail?.priceOverride
+            const localizedPriceStr = formatPrice(item.price, priceOverride)
 
-              {/* Quantity selectors */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <button onClick={() => onUpdateQty(item.id, -1)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#f5f5f7', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>−</button>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 16, textAlign: 'center' }}>{item.quantity}</span>
-                <button onClick={() => onUpdateQty(item.id, 1)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(197, 160, 89, 0.08)', border: '1px solid rgba(197, 160, 89, 0.25)', color: '#c5a059', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>+</button>
+            return (
+              <div key={item.id} className="bento-card-lux" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, background: '#14161a', borderColor: '#22242a', flexDirection: 'row' }}>
+                <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: '#0b0c0e', flexShrink: 0, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#c5a059', fontWeight: 600 }}>✦</div>
+                  )}
+                </div>
+                
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: '#f5f5f7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.title}
+                  </p>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#c5a059', fontWeight: 700 }}>
+                    {localizedPriceStr} <span style={{ fontSize: '0.72rem', color: '#8e8e93', fontWeight: 400 }}>x {item.quantity}</span>
+                  </p>
+                </div>
+
+                {/* Quantity selectors */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <button onClick={() => onUpdateQty(item.id, -1)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#f5f5f7', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>−</button>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 16, textAlign: 'center' }}>{item.quantity}</span>
+                  <button onClick={() => onUpdateQty(item.id, 1)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(197, 160, 89, 0.08)', border: '1px solid rgba(197, 160, 89, 0.25)', color: '#c5a059', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>+</button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Footer */}
@@ -88,7 +128,7 @@ export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: C
           <div style={{ padding: '24px', borderTop: '1px solid #22242a', background: 'rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <span style={{ color: '#8e8e93', fontSize: '0.85rem', fontWeight: 500 }}>SUBTOTAL</span>
-              <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#c5a059' }}>${total.toLocaleString()}</span>
+              <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#c5a059' }}>{formattedTotal}</span>
             </div>
             <button onClick={onCheckout} className="btn-lux-filled" style={{ width: '100%', padding: '14px', fontSize: '0.82rem' }}>
               Proceed to Checkout →

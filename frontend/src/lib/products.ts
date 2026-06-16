@@ -1,5 +1,12 @@
 // Shared mock data — in production this comes from the FastAPI /api/products endpoint
 
+export interface RegionAvailability {
+  available: boolean
+  stock: number
+  priceOverride?: number | null
+  shippingDays?: number | null
+}
+
 export interface Product {
   id: number
   title: string
@@ -10,6 +17,7 @@ export interface Product {
   rating: number
   review_count: number
   badge?: string
+  availability?: Record<string, RegionAvailability>
 }
 
 export const PRODUCTS: Product[] = [
@@ -377,5 +385,45 @@ export const PRODUCTS: Product[] = [
 ]
 
 export const CATEGORIES = ['All', 'Luxury Watch', 'Premium Audio', 'Designer Bags', 'Curated Looks', 'Accessories', 'Electronics', 'Footwear']
+
+// Post-process products to append regional availability
+PRODUCTS.forEach(p => {
+  // Default availability map
+  p.availability = {
+    US: { available: true, stock: 15 + (p.id % 10), priceOverride: null, shippingDays: 3 },
+    IN: { available: true, stock: 5 + (p.id % 5), priceOverride: null, shippingDays: 5 },
+    GB: { available: true, stock: 8 + (p.id % 8), priceOverride: null, shippingDays: 4 },
+    AE: { available: true, stock: 12 + (p.id % 7), priceOverride: null, shippingDays: 2 },
+    DE: { available: true, stock: 10 + (p.id % 6), priceOverride: null, shippingDays: 3 }
+  }
+
+  // 1. Regional out-of-stock (available but stock is 0)
+  if (p.id === 1) { // Chronos Elite Watch
+    p.availability.US.stock = 0
+  }
+  if (p.id === 2) { // Aura Headphones
+    p.availability.IN.stock = 0
+  }
+
+  // 2. Regional unavailability (available is false)
+  if (p.id === 32) { // Royal Silk Kurta
+    // Not available in UK (GB) and Germany (DE)
+    p.availability.GB.available = false
+    p.availability.DE.available = false
+  }
+  if (p.id === 9) { // Quantum Pro Laptop
+    // Not available in UAE (AE)
+    p.availability.AE.available = false
+  }
+
+  // 3. Price overrides (e.g. specialized regional listings)
+  if (p.id === 10) { // AeroPhone 15 Pro
+    // In India (IN), let's override price to a higher amount (e.g. INR 109,900)
+    p.availability.IN.priceOverride = 109900
+    // In UAE (AE), let's override price to AED 4,799
+    p.availability.AE.priceOverride = 4799
+  }
+})
+
 
 

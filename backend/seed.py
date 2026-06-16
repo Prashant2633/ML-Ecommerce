@@ -61,7 +61,33 @@ def seed():
         db.commit()
 
         for p in PRODUCTS:
-            db.add(Product(**p))
+            p_avail = {
+                "US": { "available": True, "stock": 15 + (len(p["title"]) % 10), "priceOverride": None, "shippingDays": 3 },
+                "IN": { "available": True, "stock": 5 + (len(p["title"]) % 5), "priceOverride": None, "shippingDays": 5 },
+                "GB": { "available": True, "stock": 8 + (len(p["title"]) % 8), "priceOverride": None, "shippingDays": 4 },
+                "AE": { "available": True, "stock": 12 + (len(p["title"]) % 7), "priceOverride": None, "shippingDays": 2 },
+                "DE": { "available": True, "stock": 10 + (len(p["title"]) % 6), "priceOverride": None, "shippingDays": 3 }
+            }
+
+            # Local overrides to match frontend precisely
+            if p["title"] == "Chronos Elite Watch":
+                p_avail["US"]["stock"] = 0
+            elif p["title"] == "Aura Headphones":
+                p_avail["IN"]["stock"] = 0
+            elif p["title"] == "Royal Silk Kurta":
+                p_avail["GB"]["available"] = False
+                p_avail["DE"]["available"] = False
+            elif p["title"] == "Quantum Pro Laptop":
+                p_avail["AE"]["available"] = False
+            elif p["title"] == "AeroPhone 15 Pro":
+                p_avail["IN"]["priceOverride"] = 109900
+                p_avail["AE"]["priceOverride"] = 4799
+
+            p_data = p.copy()
+            p_data["availability"] = p_avail
+            p_data["rating"] = round(4.2 + (len(p["title"]) % 8) * 0.1, 1)
+            p_data["review_count"] = 12 + (len(p["title"]) * 5) % 180
+            db.add(Product(**p_data))
         print(f"Seeded {len(PRODUCTS)} products.")
 
         for u in USERS:

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_URL = "postgresql://ecommerce_user:ecommerce_password@localhost:5432/ecommerce_db"
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FALLBACK_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'sqlite.db')}"
+FALLBACK_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'sqlite_v2.db')}"
 
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()

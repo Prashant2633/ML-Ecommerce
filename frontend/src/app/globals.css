@@ -533,3 +533,12 @@ body {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+@media (max-width: 768px) {
+  .mobile-bottom-tabs {
+    display: flex !important;
+  }
+  body {
+    padding-bottom: 72px; /* Prevent bottom tab bar from overlaying footer/content */
+  }
+}

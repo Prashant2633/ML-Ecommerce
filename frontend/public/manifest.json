@@ -1,0 +1,24 @@
+{
+  "name": "NexCart — Curated Luxury",
+  "short_name": "NexCart",
+  "description": "Curated Luxury. Intelligent Commerce.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0c0e",
+  "theme_color": "#c5a059",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/images/chronos_elite.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/chronos_elite.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

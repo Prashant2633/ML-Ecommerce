@@ -1,7 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useRegion } from '@/components/RegionContext'
+import { useAuth } from '@/components/AuthContext'
+import { REGIONS } from '@/lib/regions.config'
 
 interface CartItem { id: number; title: string; price: number; quantity: number }
 
@@ -14,9 +17,47 @@ interface NavbarProps {
 
 export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange }: NavbarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, logout } = useAuth()
   const [accountOpen, setAccountOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'billing' | 'telemetry'>('profile')
+  const [regionMenuOpen, setRegionMenuOpen] = useState(false)
+  const [orders, setOrders] = useState<any[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const { activeRegion, setRegion, formatPrice } = useRegion()
   const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0)
+
+  useEffect(() => {
+    const handleOpenAccount = (e: any) => {
+      if (!user) {
+        router.push('/login?redirect=/')
+        return
+      }
+      setAccountOpen(true)
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab)
+      }
+    }
+    window.addEventListener('open-account', handleOpenAccount)
+    return () => window.removeEventListener('open-account', handleOpenAccount)
+  }, [user, router])
+
+  useEffect(() => {
+    if (accountOpen && user && activeTab === 'orders') {
+      setLoadingOrders(true)
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      fetch(`${API_URL}/api/orders?user_id=${user.id}`)
+        .then(res => res.json())
+        .then(data => {
+          setOrders(data)
+          setLoadingOrders(false)
+        })
+        .catch(err => {
+          console.error(err)
+          setLoadingOrders(false)
+        })
+    }
+  }, [accountOpen, user, activeTab])
 
   const navItems = [
     { label: 'Shop', id: 'catalog', href: '/?scroll=catalog' },
@@ -28,7 +69,11 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
   const handleNavClick = (e: React.MouseEvent, item: typeof navItems[0]) => {
     if (item.isAccount) {
       e.preventDefault()
-      setAccountOpen(true)
+      if (!user) {
+        router.push('/login?redirect=/')
+      } else {
+        setAccountOpen(true)
+      }
       return
     }
 
@@ -98,6 +143,94 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
                 {item.label}
               </Link>
             ))}
+
+            {/* Region Switcher */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <button 
+                onClick={() => setRegionMenuOpen(!regionMenuOpen)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 10,
+                  padding: '7px 12px',
+                  color: '#f5f5f7',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(197, 160, 89, 0.3)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)' }}
+              >
+                <span>{activeRegion.flagEmoji}</span>
+                <span>{activeRegion.code} ({activeRegion.currencyCode})</span>
+                <span style={{ fontSize: '0.6rem', opacity: 0.6 }}>▼</span>
+              </button>
+
+              {regionMenuOpen && (
+                <>
+                  <div 
+                    style={{ position: 'fixed', inset: 0, zIndex: 998 }} 
+                    onClick={() => setRegionMenuOpen(false)} 
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    top: '120%',
+                    right: 0,
+                    width: 220,
+                    background: 'linear-gradient(135deg, #111215 0%, #16181c 100%)',
+                    border: '1px solid rgba(197, 160, 89, 0.25)',
+                    borderRadius: 12,
+                    boxShadow: '0 20px 48px rgba(0,0,0,0.8)',
+                    zIndex: 999,
+                    padding: '8px 0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    animation: 'fadeIn 0.2s ease-out',
+                  }}>
+                    <div style={{ padding: '8px 16px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.05em', color: '#8e8e93', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      Select Region
+                    </div>
+                    {REGIONS.map(r => (
+                      <button
+                        key={r.code}
+                        onClick={() => {
+                          setRegion(r.code)
+                          setRegionMenuOpen(false)
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '10px 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          color: activeRegion.code === r.code ? '#c5a059' : '#f5f5f7',
+                          fontWeight: activeRegion.code === r.code ? 700 : 500,
+                          fontSize: '0.82rem',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          width: '100%',
+                          transition: 'background 0.2s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(197, 160, 89, 0.05)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span>{r.flagEmoji}</span>
+                          <span>{r.displayName}</span>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', opacity: 0.6 }}>{r.currencyCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Cart */}
             <button onClick={onCartClick} style={{
@@ -228,7 +361,7 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
             </div>
 
             {/* Tab: Profile */}
-            {activeTab === 'profile' && (
+            {activeTab === 'profile' && user && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.2s ease-out' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid rgba(255, 255, 255, 0.03)', paddingBottom: 14 }}>
                   <div style={{
@@ -241,11 +374,15 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
                     justifyContent: 'center',
                     boxShadow: '0 0 16px rgba(197, 160, 89, 0.3)',
                   }}>
-                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0b0c0e' }}>AM</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0b0c0e' }}>
+                      {user.email.slice(0, 2).toUpperCase()}
+                    </span>
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#f5f5f7', margin: 0 }}>Alexander Mercer</h3>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#f5f5f7', margin: 0 }}>
+                        {user.email.split('@')[0]}
+                      </h3>
                       <span style={{
                         fontSize: '0.55rem',
                         fontWeight: 800,
@@ -265,23 +402,32 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
                     <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Email Address</span>
-                    <span style={{ fontSize: '0.8rem', color: '#f5f5f7', fontWeight: 600 }}>alexander.mercer@nexus.io</span>
+                    <span style={{ fontSize: '0.8rem', color: '#f5f5f7', fontWeight: 600 }}>{user.email}</span>
                   </div>
                   <div>
                     <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Registered Shipping Address</span>
                     <span style={{ fontSize: '0.8rem', color: '#f5f5f7', fontWeight: 600, lineHeight: 1.4, display: 'block' }}>
-                      1200 Avenue of the Americas, Penthouse B<br />
-                      New York, NY 10036
+                      {user.saved_addresses && user.saved_addresses.length > 0 ? (
+                        <>
+                          {user.saved_addresses[0].name}<br />
+                          {user.saved_addresses[0].address}, {user.saved_addresses[0].city}<br />
+                          {user.saved_addresses[0].state} {user.saved_addresses[0].zip_code}
+                        </>
+                      ) : (
+                        <span style={{ color: '#8e8e93', fontStyle: 'italic', fontWeight: 400 }}>No saved addresses. Add one during checkout.</span>
+                      )}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
                       <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Member ID</span>
-                      <span style={{ fontSize: '0.78rem', color: '#f5f5f7', fontWeight: 600 }}>#NEX-992-04</span>
+                      <span style={{ fontSize: '0.78rem', color: '#f5f5f7', fontWeight: 600 }}>#NEX-{String(user.id).padStart(3, '0')}-04</span>
                     </div>
                     <div>
-                      <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Contact Phone</span>
-                      <span style={{ fontSize: '0.78rem', color: '#f5f5f7', fontWeight: 600 }}>+1 (555) 019-2834</span>
+                      <span style={{ fontSize: '0.62rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Region Preference</span>
+                      <span style={{ fontSize: '0.78rem', color: '#f5f5f7', fontWeight: 600, textTransform: 'uppercase' }}>
+                        {user.region_preference || activeRegion.code}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -289,66 +435,87 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
             )}
 
             {/* Tab: Orders */}
-            {activeTab === 'orders' && (
+            {activeTab === 'orders' && user && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 220, overflowY: 'auto', paddingRight: 4, animation: 'fadeIn 0.2s ease-out' }}>
-                {[
-                  { id: 'NEX-9872', item: 'Chronos Elite Watch', date: 'June 12, 2026', total: 4950.00, status: 'Shipped (FedEx #FX-8827)', statusColor: '#10b981' },
-                  { id: 'NEX-9801', item: 'Aura Headphones', date: 'June 08, 2026', total: 850.00, status: 'Processing (Est: June 18)', statusColor: '#c5a059' },
-                  { id: 'NEX-9520', item: 'Aria Crossbody', date: 'May 15, 2026', total: 1200.00, status: 'Delivered', statusColor: '#8e8e93' }
-                ].map(order => (
-                  <div key={order.id} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f5f5f7' }}>Order #{order.id}</span>
-                      <span style={{ fontSize: '0.68rem', color: order.statusColor, fontWeight: 700 }}>{order.status}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#8e8e93' }}>
-                      <span>{order.item} · {order.date}</span>
-                      <span style={{ fontWeight: 800, color: '#c5a059' }}>${order.total.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
+                {loadingOrders ? (
+                  <div style={{ fontSize: '0.8rem', color: '#8e8e93', textAlign: 'center', padding: '20px 0' }}>Loading orders...</div>
+                ) : orders.length === 0 ? (
+                  <div style={{ fontSize: '0.8rem', color: '#8e8e93', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>No orders placed yet.</div>
+                ) : (
+                  orders.map(order => {
+                    const orderDate = new Date(order.created_at).toLocaleDateString(activeRegion.locale, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })
+                    const totalFormatted = new Intl.NumberFormat(activeRegion.locale, {
+                      style: 'currency',
+                      currency: order.items[0]?.price ? activeRegion.currencyCode : 'USD'
+                    }).format(order.total)
+
+                    return (
+                      <div key={order.order_number} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f5f5f7' }}>Order #{order.order_number}</span>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            color: order.status === 'Completed' ? '#10b981' : '#c5a059',
+                            fontWeight: 700
+                          }}>{order.status}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#8e8e93' }}>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
+                            {order.items.map((item: any) => `${item.title} x${item.quantity}`).join(', ')} · {orderDate}
+                          </span>
+                          <span style={{ fontWeight: 800, color: '#c5a059' }}>{totalFormatted}</span>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             )}
 
             {/* Tab: Billing/Payments */}
-            {activeTab === 'billing' && (
+            {activeTab === 'billing' && user && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeIn 0.2s ease-out' }}>
                 <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#8e8e93', textTransform: 'uppercase' }}>Saved Payment Methods</span>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{
-                    background: 'linear-gradient(135deg, #1f2025 0%, #101114 100%)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.55rem', color: '#8e8e93', fontWeight: 800, letterSpacing: '0.1em' }}>VISA PLATINUM</span>
-                      <span style={{ color: '#c5a059', fontSize: '0.8rem', fontWeight: 900 }}>NEXUS</span>
-                    </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.15em', color: '#f5f5f7', margin: '4px 0' }}>•••• •••• •••• 4021</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#8e8e93' }}>
-                      <span>ALEXANDER MERCER</span>
-                      <span>EXP: 12/29</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: '1rem' }}>💳</span>
-                      <div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', color: '#f5f5f7' }}>Mastercard Black</span>
-                        <span style={{ fontSize: '0.6rem', color: '#8e8e93' }}>•••• •••• •••• 9012</span>
+                {user.saved_payment_methods && user.saved_payment_methods.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {user.saved_payment_methods.map((pm, index) => (
+                      <div key={index} style={{
+                        background: 'linear-gradient(135deg, #1f2025 0%, #101114 100%)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10,
+                        boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.55rem', color: '#8e8e93', fontWeight: 800, letterSpacing: '0.1em' }}>
+                            {pm.brand?.toUpperCase() || 'CARD'}
+                          </span>
+                          <span style={{ color: '#c5a059', fontSize: '0.8rem', fontWeight: 900 }}>NEXUS</span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.15em', color: '#f5f5f7', margin: '4px 0' }}>
+                          •••• •••• •••• {pm.last4 || '••••'}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#8e8e93' }}>
+                          <span>{pm.cardholderName || 'CARDHOLDER'}</span>
+                          <span>EXP: {pm.expiry || '••/••'}</span>
+                        </div>
                       </div>
-                    </div>
-                    <button style={{ background: 'none', border: 'none', color: '#c5a059', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 700 }}>Edit</button>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#8e8e93', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>
+                    No saved payment methods. Save cards securely during checkout.
+                  </div>
+                )}
               </div>
             )}
 
             {/* Tab: AI Settings */}
-            {activeTab === 'telemetry' && (
+            {activeTab === 'telemetry' && user && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'fadeIn 0.2s ease-out' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10 }}>
                   <div>
@@ -385,14 +552,17 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
             {/* Quick Actions */}
             <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
               <button 
-                onClick={() => alert("Re-calibrating NexCart AI recommendation engine to your telemetry trends...")}
+                onClick={() => {
+                  logout()
+                  setAccountOpen(false)
+                }}
                 style={{
                   flex: 1,
-                  background: 'rgba(197, 160, 89, 0.08)',
-                  border: '1px solid rgba(197, 160, 89, 0.25)',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
                   borderRadius: 10,
                   padding: '10px 12px',
-                  color: '#c5a059',
+                  color: '#ef4444',
                   cursor: 'pointer',
                   fontWeight: 700,
                   fontSize: '0.72rem',
@@ -401,10 +571,10 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
                   transition: 'all 0.2s',
                   fontFamily: 'inherit',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(197, 160, 89, 0.15)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(197, 160, 89, 0.08)'}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
               >
-                ✦ Recalibrate AI
+                Sign Out
               </button>
               <button 
                 onClick={() => setAccountOpen(false)}
@@ -419,7 +589,6 @@ export default function Navbar({ cart, onCartClick, searchQuery, onSearchChange 
                   fontWeight: 700,
                   fontSize: '0.72rem',
                   letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
                   transition: 'opacity 0.2s',
                   fontFamily: 'inherit',
                 }}
