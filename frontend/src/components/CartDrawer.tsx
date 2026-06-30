@@ -63,17 +63,17 @@ export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: C
       {/* Drawer */}
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: 420,
-        background: '#0e1013',
-        borderLeft: '1px solid #22242a',
+        background: 'var(--bg-secondary)',
+        borderLeft: '1px solid var(--border-subtle)',
         zIndex: 201,
         display: 'flex', flexDirection: 'column',
         boxShadow: '-20px 0 60px rgba(0,0,0,0.7)',
       }}>
         {/* Header */}
-        <div style={{ padding: '24px', borderBottom: '1px solid #22242a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.15rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#f5f5f7' }}>
+        <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.15rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
             Your Cart
-            <span style={{ marginLeft: 10, fontSize: '0.82rem', color: '#8e8e93', fontWeight: 500 }}>
+            <span style={{ marginLeft: 10, fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 500 }}>
               ({cart.length} item{cart.length !== 1 ? 's' : ''})
             </span>
           </h2>
@@ -117,8 +117,8 @@ export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: C
             const localizedPriceStr = formatPrice(item.price, priceOverride)
 
             return (
-              <div key={item.size ? `${item.id}-${item.size}` : `${item.id}`} className="bento-card-lux" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, background: '#14161a', borderColor: '#22242a', flexDirection: 'row' }}>
-                <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: '#0b0c0e', flexShrink: 0, border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div key={item.size ? `${item.id}-${item.size}` : `${item.id}`} className="bento-card-lux" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, background: 'var(--bg-secondary)', borderColor: 'var(--border-subtle)', flexDirection: 'row' }}>
+                <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: 'var(--bg-primary)', flexShrink: 0, border: '1px solid var(--border-subtle)' }}>
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
@@ -127,14 +127,14 @@ export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: C
                 </div>
                 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: '#f5f5f7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {item.title}
                   </p>
                   <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#c5a059', fontWeight: 700 }}>
-                    {localizedPriceStr} <span style={{ fontSize: '0.72rem', color: '#8e8e93', fontWeight: 400 }}>x {item.quantity}</span>
+                    {localizedPriceStr} <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>x {item.quantity}</span>
                   </p>
                   {item.size && (
-                    <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 6px', background: 'rgba(255,255,255,0.04)', borderRadius: 4, fontSize: '0.65rem', color: '#8e8e93', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 6px', background: 'rgba(255,255,255,0.04)', borderRadius: 4, fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Size: {item.size}
                     </span>
                   )}
@@ -142,7 +142,7 @@ export default function CartDrawer({ cart, onClose, onUpdateQty, onCheckout }: C
 
                 {/* Quantity selectors */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => onUpdateQty(item.id, -1, item.size)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#f5f5f7', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>−</button>
+                  <button onClick={() => onUpdateQty(item.id, -1, item.size)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>−</button>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 16, textAlign: 'center' }}>{item.quantity}</span>
                   <button onClick={() => onUpdateQty(item.id, 1, item.size)} style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(197, 160, 89, 0.08)', border: '1px solid rgba(197, 160, 89, 0.25)', color: '#c5a059', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>+</button>
                 </div>

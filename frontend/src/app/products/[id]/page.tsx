@@ -290,14 +290,14 @@ export default function ProductDetailPage() {
 
   if (loadingProduct) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0c0e', color: '#f5f5f7' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
         <div style={{ fontSize: '1.2rem', color: '#c5a059', fontWeight: 600 }}>Loading product details...</div>
       </div>
     )
   }
 
   if (!product) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, background: '#0b0c0e', color: '#f5f5f7' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <div style={{ fontSize: '3rem' }}>🔍</div>
       <p style={{ color: '#8e8e93', fontWeight: 600 }}>Product not found.</p>
       <Link href="/" className="btn-lux-filled" style={{ display: 'inline-block', padding: '12px 28px', textDecoration: 'none' }}>← Go Back Home</Link>
@@ -324,7 +324,7 @@ export default function ProductDetailPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0b0c0e', color: '#f5f5f7' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       
       {/* Navbar header */}
       <Navbar cart={cart} onCartClick={() => setCartOpen(true)} searchQuery={searchQuery} onSearchChange={handleSearchChange} />

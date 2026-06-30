@@ -71,8 +71,8 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
         onMouseLeave={handleMouseLeave}
         onMouseEnter={() => setIsHovered(true)}
         style={{
-          background: '#14161a',
-          border: isHovered ? '1px solid rgba(197, 160, 89, 0.35)' : '1px solid #22242a',
+          background: 'var(--bg-secondary)',
+          border: isHovered ? '1px solid rgba(197, 160, 89, 0.35)' : '1px solid var(--border-subtle)',
           borderRadius: 20,
           overflow: 'hidden',
           height: '100%',
@@ -133,7 +133,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             border: '1px solid rgba(255,255,255,0.06)',
           }}>
              <span style={{ color: '#c5a059', fontSize: '0.72rem' }}>★</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f5f5f7' }}>{product.rating ?? 5.0}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{product.rating ?? 5.0}</span>
           </div>
         </div>
 
@@ -156,7 +156,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
             <span style={{ fontSize: '0.75rem', color: '#8e8e93' }}>{(product.review_count ?? 0).toLocaleString()} reviews</span>
           </div>
 
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f5f5f7', lineHeight: 1.4, margin: 0 }}>
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.4, margin: 0 }}>
             {product.title}
           </h3>
 

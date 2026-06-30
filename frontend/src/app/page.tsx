@@ -389,7 +389,7 @@ export default function HomePage() {
   }
 
   return (
-    <div ref={pageRef} style={{ minHeight: '100vh', background: '#0b0c0e', color: '#f5f5f7' }}>
+    <div ref={pageRef} style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <Navbar cart={cart} onCartClick={() => setCartOpen(true)} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
       {/* ── Top-Fold Premium Bento Grid Section ── */}
@@ -458,7 +458,7 @@ export default function HomePage() {
             style={{ display: 'flex', flexDirection: 'column', gap: 22 }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f5f5f7', margin: 0 }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-primary)', margin: 0 }}>
                 AI Style Guide
               </h3>
               <Settings size={15} style={{ color: '#8e8e93', cursor: 'pointer' }} onClick={() => setStyleSettingsOpen(true)} />
@@ -523,8 +523,8 @@ export default function HomePage() {
                     </linearGradient>
                   </defs>
                   {/* Points */}
-                  <circle cx="30" cy="12" r="1.5" fill="#f5f5f7" />
-                  <circle cx="60" cy="18" r="1.5" fill="#f5f5f7" />
+                  <circle cx="30" cy="12" r="1.5" fill="var(--text-primary)" />
+                  <circle cx="60" cy="18" r="1.5" fill="var(--text-primary)" />
                   <circle cx="90" cy="5" r="1.8" fill="#c5a059" />
                 </svg>
               </div>
@@ -607,11 +607,11 @@ export default function HomePage() {
             style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f5f5f7', margin: 0 }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-primary)', margin: 0 }}>
                 Your Trends
               </h3>
               <span 
-                style={{ color: '#8e8e93', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                style={{ color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
                 onClick={() => setTrendsMenuOpen(!trendsMenuOpen)}
               >
                 •••
@@ -697,7 +697,7 @@ export default function HomePage() {
                     <div style={{
                       width: '100%',
                       height: `${h}px`,
-                      background: i === weeklyData.length - 1 ? 'linear-gradient(to top, #aa820a, #c5a059)' : 'rgba(255,255,255,0.06)',
+                      background: i === weeklyData.length - 1 ? 'linear-gradient(to top, #aa820a, #c5a059)' : 'var(--border-subtle)',
                       borderRadius: 4,
                       transition: 'all 0.3s'
                     }} />
@@ -845,7 +845,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: '0.95rem', color: '#c5a059' }}>✦</span>
-                <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f5f5f7', margin: 0 }}>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-primary)', margin: 0 }}>
                   Recommended For You
                 </h3>
               </div>
@@ -862,7 +862,7 @@ export default function HomePage() {
                       <img src={p.image_url} alt={p.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f5f5f7', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                         {p.title}
                       </div>
                       <div style={{ fontSize: '0.62rem', color: '#8e8e93', marginTop: 1 }}>
@@ -1265,11 +1265,11 @@ export default function HomePage() {
                     { cat: 'Curated Looks', pct: 12 }
                   ].map(affinity => (
                     <div key={affinity.cat}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#f5f5f7', marginBottom: 2 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-primary)', marginBottom: 2 }}>
                         <span>{affinity.cat}</span>
                         <span style={{ color: '#c5a059', fontWeight: 700 }}>{affinity.pct}%</span>
                       </div>
-                      <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ width: '100%', height: 4, background: 'var(--border-subtle)', borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{ width: `${affinity.pct}%`, height: '100%', background: 'linear-gradient(90deg, #aa820a, #c5a059)' }} />
                       </div>
                     </div>
@@ -1283,7 +1283,7 @@ export default function HomePage() {
                   Preference Shift Notes
                 </span>
                 <p style={{ fontSize: '0.75rem', color: '#8e8e93', lineHeight: 1.5, margin: 0 }}>
-                  User demonstrates high preference stability on <span style={{ color: '#c5a059', fontWeight: 700 }}>Watches & Audio</span>. A minor preference increase in <span style={{ color: '#f5f5f7', fontWeight: 600 }}>Curated Looks</span> is detected over Friday-Saturday clusters. Recommend pairing Chronos Elite Watch suggestions with wool-blend garments.
+                  User demonstrates high preference stability on <span style={{ color: '#c5a059', fontWeight: 700 }}>Watches & Audio</span>. A minor preference increase in <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Curated Looks</span> is detected over Friday-Saturday clusters. Recommend pairing Chronos Elite Watch suggestions with wool-blend garments.
                 </p>
               </div>
 
@@ -1295,7 +1295,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <span style={{ fontSize: '0.58rem', color: '#8e8e93', textTransform: 'uppercase', display: 'block', marginBottom: 2 }}>Index Convergence</span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f5f5f7' }}>98.6% Accuracy</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)' }}>98.6% Accuracy</span>
                 </div>
               </div>
             </div>
